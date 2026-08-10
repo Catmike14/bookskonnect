@@ -16,7 +16,8 @@ import {
   Eye,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Trash2
 } from 'lucide-react';
 
 interface ClientDirectoryProps {
@@ -25,6 +26,7 @@ interface ClientDirectoryProps {
   onSelectClientForBroadcast: (clientName: string) => void;
   onAddClient: (client: Omit<Client, 'id'>) => void;
   onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus']) => void;
+  onDeleteClient?: (clientId: number) => void;
 }
 
 export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
@@ -33,6 +35,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
   onSelectClientForBroadcast,
   onAddClient,
   onUpdateClientNotes,
+  onDeleteClient,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -250,14 +253,30 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
               )}
 
               {/* Quick Action */}
-              <div className="pt-1 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => setSelectedDetailClient(client)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5 text-slate-500" />
-                  <span>View Filing History</span>
-                </button>
+              <div className="pt-1 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setSelectedDetailClient(client)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    <span>View History</span>
+                  </button>
+
+                  {onDeleteClient && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete client account "${client.name}"?`)) {
+                          onDeleteClient(client.id);
+                        }
+                      }}
+                      title="Delete Client Account"
+                      className="p-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-xl transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
                 <button
                   onClick={() => onSelectClientForBroadcast(client.name)}
@@ -380,6 +399,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
         onClose={() => setSelectedDetailClient(null)}
         onUpdateClientNotes={onUpdateClientNotes}
         onSelectForBroadcast={onSelectClientForBroadcast}
+        onDeleteClient={onDeleteClient}
       />
 
     </div>

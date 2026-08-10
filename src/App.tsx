@@ -334,6 +334,10 @@ export default function App() {
     }));
   };
 
+  const handleDeleteClient = (clientId: number) => {
+    setClients(prev => prev.filter(c => c.id !== clientId));
+  };
+
   const handleResetDataToDefault = () => {
     if (confirm('Reset demo data to initial firm state?')) {
       localStorage.removeItem('bk_tasks');
@@ -570,6 +574,7 @@ export default function App() {
             }}
             onAddClient={handleAddClient}
             onUpdateClientNotes={handleUpdateClientNotes}
+            onDeleteClient={handleDeleteClient}
           />
         )}
 
@@ -586,6 +591,7 @@ export default function App() {
           <TeamDirectory
             tasks={tasks}
             users={allUsers}
+            onDeleteUser={handleDeleteUser}
             onSelectUserForBroadcast={(userName) => {
               setActiveTab('FEED');
             }}

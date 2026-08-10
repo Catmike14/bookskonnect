@@ -17,7 +17,8 @@ import {
   Copy, 
   Check,
   Loader2,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 
 interface ClientDetailModalProps {
@@ -26,6 +27,7 @@ interface ClientDetailModalProps {
   onClose: () => void;
   onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus']) => void;
   onSelectForBroadcast: (clientName: string) => void;
+  onDeleteClient?: (clientId: number) => void;
 }
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
@@ -34,6 +36,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   onClose,
   onUpdateClientNotes,
   onSelectForBroadcast,
+  onDeleteClient,
 }) => {
   if (!client) return null;
 
@@ -134,12 +137,31 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onDeleteClient && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Are you sure you want to permanently delete the client account "${client.name}"? This action cannot be undone.`)) {
+                    onDeleteClient(client.id);
+                    onClose();
+                  }
+                }}
+                title="Delete Client Account"
+                className="p-2 text-red-400 hover:text-white hover:bg-red-600/30 border border-red-500/30 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-semibold"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete Client</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Client Stats Quick Bar */}

@@ -14,7 +14,8 @@ import {
   Filter,
   ShieldAlert,
   Layers,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react';
 
 interface TeamDirectoryProps {
@@ -22,6 +23,7 @@ interface TeamDirectoryProps {
   onSelectUserForBroadcast: (userName: string) => void;
   onFilterByAssignee: (userName: string) => void;
   users?: User[];
+  onDeleteUser?: (userId: number) => void;
 }
 
 export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
@@ -29,6 +31,7 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
   onSelectUserForBroadcast,
   onFilterByAssignee,
   users = TEAM_USERS,
+  onDeleteUser,
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [searchMember, setSearchMember] = useState('');
@@ -225,6 +228,20 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Assign Task</span>
                 </button>
+
+                {onDeleteUser && member.role !== 'System Administrator' && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to remove team member "${member.name}"?`)) {
+                        onDeleteUser(member.id);
+                      }
+                    }}
+                    title="Remove Team Member Account"
+                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-xl transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
             </div>
