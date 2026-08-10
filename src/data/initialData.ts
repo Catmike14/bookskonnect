@@ -2,6 +2,13 @@ import { User, Task, Client, TaxDeadline } from '../types';
 
 export const TEAM_USERS: User[] = [
   {
+    id: 999,
+    name: 'Admin Master',
+    role: 'System Administrator',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    email: 'admin@bookskonnect.com'
+  },
+  {
     id: 1,
     name: 'Michael Catorce',
     role: 'Manager',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Task, TaskStatus, Client, TaxDeadline } from './types';
+import { User, Task, TaskStatus, Client, TaxDeadline, Role } from './types';
 import { TEAM_USERS, INITIAL_CLIENTS, INITIAL_DEADLINES, INITIAL_TASKS } from './data/initialData';
 import { Header } from './components/Header';
 import { TaxDeadlineTicker } from './components/TaxDeadlineTicker';
@@ -8,7 +8,9 @@ import { FeedCard } from './components/FeedCard';
 import { ClientDirectory } from './components/ClientDirectory';
 import { ComplianceAnalytics } from './components/ComplianceAnalytics';
 import { TeamDirectory } from './components/TeamDirectory';
+import { AdminPanel } from './components/AdminPanel';
 import { AICpaAssistantModal } from './components/AICpaAssistantModal';
+import { AuthModal } from './components/AuthModal';
 import { ToastNotificationContainer, ToastAlert } from './components/ToastNotification';
 import { 
   Inbox, 
@@ -24,6 +26,21 @@ import {
 
 export default function App() {
   // LocalStorage persistence state initialization
+  const [allUsers, setAllUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('bk_registered_users');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const ids = new Set(TEAM_USERS.map(u => u.id));
+        const customOnly = parsed.filter((u: User) => !ids.has(u.id));
+        return [...TEAM_USERS, ...customOnly];
+      } catch (e) {
+        return TEAM_USERS;
+      }
+    }
+    return TEAM_USERS;
+  });
+
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('bk_user');
     return saved ? JSON.parse(saved) : TEAM_USERS[0];
@@ -41,13 +58,85 @@ export default function App() {
 
   const [deadlines] = useState<TaxDeadline[]>(INITIAL_DEADLINES);
 
-  const [activeTab, setActiveTab] = useState<'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM'>('FEED');
+  const [activeTab, setActiveTab] = useState<'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN'>('FEED');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('ALL');
 
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastAlert[]>([]);
+
+  // Admin Management Handlers
+  const handleUpdateUserRole = (userId: number, newRole: Role) => {
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return { ...u, role: newRole };
+      }
+      return u;
+    }));
+    if (currentUser.id === userId) {
+      setCurrentUser(prev => ({ ...prev, role: newRole }));
+    }
+  };
+
+  const handleDeleteUser = (userId: number) => {
+    setAllUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
+  const handleDeleteTask = (taskId: number) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const handleRestoreData = (importedData: { tasks?: Task[]; clients?: Client[]; users?: User[] }) => {
+    if (importedData.tasks) setTasks(importedData.tasks);
+    if (importedData.clients) setClients(importedData.clients);
+    if (importedData.users) setAllUsers(importedData.users);
+  };
+
+  // Persist registered users
+  useEffect(() => {
+    localStorage.setItem('bk_registered_users', JSON.stringify(allUsers));
+  }, [allUsers]);
+
+  const handleRegisterUser = (newUser: User) => {
+    setAllUsers(prev => {
+      if (prev.some(u => u.id === newUser.id || u.email.toLowerCase() === newUser.email.toLowerCase())) {
+        return prev;
+      }
+      return [...prev, newUser];
+    });
+  };
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    // Add success toast
+    setToasts(prev => [
+      {
+        id: 'auth-' + Date.now(),
+        title: '✅ Authenticated',
+        message: `Welcome back, ${user.name}! Active role set to ${user.role}.`,
+        type: 'approaching',
+        dateStr: new Date().toLocaleDateString()
+      },
+      ...prev
+    ]);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(TEAM_USERS[0]);
+    setIsAuthModalOpen(true);
+    setToasts(prev => [
+      {
+        id: 'logout-' + Date.now(),
+        title: '👋 Signed Out',
+        message: 'You have been signed out. Please sign in or register to continue.',
+        type: 'approaching',
+        dateStr: new Date().toLocaleDateString()
+      },
+      ...prev
+    ]);
+  };
 
   // Check for approaching and overdue due dates on mount & task updates
   useEffect(() => {
@@ -359,6 +448,9 @@ export default function App() {
         overdueCount={overdueCount}
         approachingCount={approachingCount}
         onTriggerAlerts={handleTriggerAlerts}
+        allUsers={allUsers}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Body */}
@@ -493,6 +585,7 @@ export default function App() {
         {activeTab === 'TEAM' && (
           <TeamDirectory
             tasks={tasks}
+            users={allUsers}
             onSelectUserForBroadcast={(userName) => {
               setActiveTab('FEED');
             }}
@@ -503,7 +596,33 @@ export default function App() {
           />
         )}
 
+        {/* VIEW 5: SYSTEM ADMIN CONTROL HUB */}
+        {activeTab === 'ADMIN' && (
+          <AdminPanel
+            currentUser={currentUser}
+            allUsers={allUsers}
+            onUpdateUserRole={handleUpdateUserRole}
+            onDeleteUser={handleDeleteUser}
+            onAddUser={handleRegisterUser}
+            tasks={tasks}
+            clients={clients}
+            onDeleteTask={handleDeleteTask}
+            onForceUpdateTaskStatus={handleUpdateStatus}
+            onResetData={handleResetDataToDefault}
+            onRestoreData={handleRestoreData}
+          />
+        )}
+
       </main>
+
+      {/* Sign In & Sign Up Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        allUsers={allUsers}
+        onRegisterUser={handleRegisterUser}
+      />
 
       {/* AI CPA Assistant Modal */}
       <AICpaAssistantModal

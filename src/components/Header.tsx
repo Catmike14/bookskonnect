@@ -1,6 +1,5 @@
 import React from 'react';
 import { User } from '../types';
-import { TEAM_USERS } from '../data/initialData';
 import { 
   Layers, 
   Search, 
@@ -13,14 +12,19 @@ import {
   Building2,
   CheckCircle2,
   Bell,
-  Clock
+  Clock,
+  LogIn,
+  UserPlus,
+  LogOut,
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: User;
   onSelectUser: (user: User) => void;
-  activeTab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM';
-  setActiveTab: (tab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM') => void;
+  activeTab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN';
+  setActiveTab: (tab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenAiAssistant: () => void;
@@ -29,6 +33,9 @@ interface HeaderProps {
   overdueCount?: number;
   approachingCount?: number;
   onTriggerAlerts?: () => void;
+  allUsers?: User[];
+  onOpenAuthModal?: (mode?: 'LOGIN' | 'SIGNUP') => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,6 +51,9 @@ export const Header: React.FC<HeaderProps> = ({
   overdueCount = 0,
   approachingCount = 0,
   onTriggerAlerts,
+  allUsers = [],
+  onOpenAuthModal,
+  onLogout,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = React.useState(false);
   const totalDueAlerts = overdueCount + approachingCount;
@@ -124,6 +134,23 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Users className="w-3.5 h-3.5" />
               <span>Team Directory</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ADMIN')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                activeTab === 'ADMIN'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : currentUser.role === 'System Administrator'
+                  ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin Control</span>
+              {currentUser.role === 'System Administrator' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              )}
             </button>
           </nav>
         </div>
@@ -228,32 +255,92 @@ export const Header: React.FC<HeaderProps> = ({
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
 
-            {/* Dropdown Menu to switch user perspective */}
+            {/* Dropdown Menu to switch user perspective or auth */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/80 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Switch User Role</span>
-                  <span className="text-xs text-slate-500">Test platform as different team member</span>
-                </div>
-                {TEAM_USERS.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => {
-                      onSelectUser(user);
-                      setShowUserDropdown(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-xs transition cursor-pointer ${
-                      currentUser.id === user.id ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold">{user.name}</div>
-                      <div className="text-[10px] text-slate-500">{user.role}</div>
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/80 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                
+                {/* Auth Actions Header */}
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Current Active Session</div>
+                  <div className="flex items-center gap-2">
+                    <img src={currentUser.avatar} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-800 truncate">{currentUser.name}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold">{currentUser.role}</div>
                     </div>
-                    {currentUser.id === user.id && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                      Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Auth Buttons */}
+                <div className="space-y-1 mb-2 pb-2 border-b border-slate-100">
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      if (onOpenAuthModal) onOpenAuthModal('LOGIN');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Sign In to Account</span>
                   </button>
-                ))}
+
+                  <button
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      if (onOpenAuthModal) onOpenAuthModal('SIGNUP');
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Register New CPA Profile</span>
+                  </button>
+                </div>
+
+                {/* Switch User List */}
+                <div className="px-3 py-1 mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Switch Team Profile</span>
+                </div>
+                
+                <div className="max-h-48 overflow-y-auto space-y-0.5 pr-0.5">
+                  {allUsers.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        onSelectUser(user);
+                        setShowUserDropdown(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left text-xs transition cursor-pointer ${
+                        currentUser.id === user.id ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold truncate">{user.name}</div>
+                        <div className="text-[10px] text-slate-500 truncate">{user.role}</div>
+                      </div>
+                      {currentUser.id === user.id && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Logout Button */}
+                {onLogout && (
+                  <div className="pt-2 mt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 shrink-0" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

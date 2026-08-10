@@ -1,4 +1,4 @@
-export type Role = 'Manager' | 'Senior CPA' | 'Staff Auditor' | 'Tax Specialist' | 'Bookkeeper';
+export type Role = 'System Administrator' | 'Manager' | 'Senior CPA' | 'Staff Auditor' | 'Tax Specialist' | 'Bookkeeper';
 
 export interface User {
   id: number;

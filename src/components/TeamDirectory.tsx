@@ -21,17 +21,19 @@ interface TeamDirectoryProps {
   tasks: Task[];
   onSelectUserForBroadcast: (userName: string) => void;
   onFilterByAssignee: (userName: string) => void;
+  users?: User[];
 }
 
 export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
   tasks,
   onSelectUserForBroadcast,
   onFilterByAssignee,
+  users = TEAM_USERS,
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [searchMember, setSearchMember] = useState('');
 
-  const filteredMembers = TEAM_USERS.filter(u => 
+  const filteredMembers = users.filter(u => 
     u.name.toLowerCase().includes(searchMember.toLowerCase()) ||
     u.role.toLowerCase().includes(searchMember.toLowerCase()) ||
     u.email.toLowerCase().includes(searchMember.toLowerCase())
