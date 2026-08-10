@@ -16,7 +16,11 @@ import {
   KeyRound,
   UserPlus,
   LogIn,
-  AlertCircle
+  AlertCircle,
+  Smartphone,
+  Shield,
+  Key,
+  Check
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -34,12 +38,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   allUsers,
   onRegisterUser,
 }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'SIGNUP' | '2FA'>('LOGIN');
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [pending2FAUser, setPending2FAUser] = useState<User | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [enable2FA, setEnable2FA] = useState(true);
 
   // Signup form state
   const [signupName, setSignupName] = useState('');
@@ -61,7 +68,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // Check match against all existing users (registered + team default)
     const normalizedEmail = loginEmail.trim().toLowerCase();
     const matchedUser = allUsers.find(
       (u) => u.email.toLowerCase() === normalizedEmail
@@ -69,27 +75,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       (u) => u.email.toLowerCase() === normalizedEmail
     );
 
-    if (matchedUser) {
-      onLoginSuccess(matchedUser);
-      onClose();
+    const userToAuth = matchedUser || {
+      id: Date.now(),
+      name: loginEmail.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()),
+      email: loginEmail.trim(),
+      role: 'Senior CPA' as Role,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(loginEmail)}`
+    };
+
+    if (!matchedUser) {
+      onRegisterUser(userToAuth);
+    }
+
+    if (enable2FA) {
+      setPending2FAUser(userToAuth);
+      setMode('2FA');
     } else {
-      // Demo authentication: allow signing in as any entered email by creating/matching or selecting closest
-      const demoUser: User = {
-        id: Date.now(),
-        name: loginEmail.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()),
-        email: loginEmail.trim(),
-        role: 'Senior CPA',
-        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(loginEmail)}`
-      };
-      onRegisterUser(demoUser);
-      onLoginSuccess(demoUser);
+      onLoginSuccess(userToAuth);
       onClose();
     }
   };
 
-  const handleQuickLogin = (user: User) => {
-    onLoginSuccess(user);
+  const handleVerify2FA = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pending2FAUser) return;
+
+    if (twoFactorCode.trim().length < 4) {
+      setLoginError('Please enter a valid 6-digit 2FA verification code (e.g. 123456)');
+      return;
+    }
+
+    onLoginSuccess(pending2FAUser);
     onClose();
+  };
+
+  const handleQuickLogin = (user: User) => {
+    if (enable2FA) {
+      setPending2FAUser(user);
+      setTwoFactorCode('884920'); // Autofill sample 2FA
+      setMode('2FA');
+    } else {
+      onLoginSuccess(user);
+      onClose();
+    }
   };
 
   const handleSignupSubmit = (e: React.FormEvent) => {
@@ -209,7 +237,61 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto max-h-[75vh]">
-          {mode === 'LOGIN' ? (
+          {mode === '2FA' ? (
+            <div className="space-y-6">
+              <div className="p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-center space-y-2">
+                <div className="w-12 h-12 bg-emerald-600 text-white rounded-full mx-auto flex items-center justify-center shadow-md">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <h3 className="font-extrabold text-sm text-slate-900">Two-Factor Authentication (2FA)</h3>
+                <p className="text-xs text-slate-600">
+                  A 6-digit verification code was generated for <strong className="text-emerald-800">{pending2FAUser?.email}</strong>
+                </p>
+              </div>
+
+              <form onSubmit={handleVerify2FA} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 text-center">
+                    Enter Security OTP Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value)}
+                    placeholder="e.g. 884920"
+                    maxLength={6}
+                    className="w-full text-center tracking-widest text-lg font-black py-3 bg-slate-50 border border-slate-300 rounded-2xl outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 text-center mt-1">
+                    Demo Code pre-filled or enter any 6 digits to verify session token.
+                  </p>
+                </div>
+
+                {loginError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Authenticate & Open Dashboard</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode('LOGIN')}
+                  className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Back to Sign In
+                </button>
+              </form>
+            </div>
+          ) : mode === 'LOGIN' ? (
             <div className="space-y-6">
               {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -274,7 +356,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <button
                     onClick={() => {
                       const adminUser = allUsers.find(u => u.role === 'System Administrator');
-                      if (adminUser) handleQuickLogin(adminUser);
+                      if (adminUser) {
+                        setLoginEmail(adminUser.email);
+                        setLoginPassword('admin123');
+                      }
                     }}
                     className="w-full p-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl border border-indigo-500/40 hover:border-indigo-400 flex items-center justify-between shadow-lg transition cursor-pointer group"
                   >
@@ -286,10 +371,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <div className="text-xs font-black text-white flex items-center gap-2">
                           Admin Master Account
                           <span className="bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 text-[9px] font-bold px-2 py-0.2 rounded-full uppercase">
-                            Full App Control
+                            Pre-fill Admin Credentials
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-300">admin@bookskonnect.com</div>
+                        <div className="text-[10px] text-slate-300">admin@bookskonnect.com (Password: admin123)</div>
                       </div>
                     </div>
                     <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition" />

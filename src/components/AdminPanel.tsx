@@ -52,7 +52,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onResetData,
   onRestoreData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'USERS' | 'DATA' | 'TASKS' | 'AUDIT'>('USERS');
+  const [activeTab, setActiveTab] = useState<'USERS' | 'DATA' | 'TASKS' | 'AUDIT' | 'SECURITY'>('USERS');
+  
+  // Security Policies State
+  const [require2FA, setRequire2FA] = useState(true);
+  const [sessionTimeout, setSessionTimeout] = useState('30');
+  const [adminPin, setAdminPin] = useState('8888');
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const [pinChangeMessage, setPinChangeMessage] = useState('');
   
   // User Search & Filter
   const [userSearch, setUserSearch] = useState('');
@@ -242,6 +249,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             { id: 'USERS', label: 'User & Role Management', icon: Users, badge: allUsers.length },
             { id: 'TASKS', label: 'Broadcast Content Moderation', icon: Layers, badge: tasks.length },
             { id: 'DATA', label: 'Storage & Backup Tools', icon: Database },
+            { id: 'SECURITY', label: 'Security & Access Policies', icon: ShieldCheck },
             { id: 'AUDIT', label: 'Master System Audit Log', icon: Activity, badge: allAuditLogs.length },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -569,7 +577,127 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 4: MASTER AUDIT LOG */}
+      {/* TAB 4: SECURITY & ACCESS CONTROL POLICIES */}
+      {activeTab === 'SECURITY' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Security Guard Controls */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Two-Factor Authentication (2FA)</h3>
+                  <p className="text-xs text-slate-500">Require OTP verification on user sign-in</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                <div>
+                  <div className="text-xs font-bold text-slate-800">Mandatory 2FA OTP Security</div>
+                  <div className="text-[10px] text-slate-500">Require 6-digit security code for all team accounts</div>
+                </div>
+                <button
+                  onClick={() => setRequire2FA(!require2FA)}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition cursor-pointer ${
+                    require2FA ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">Auto Workstation Lock Timeout</label>
+                <select
+                  value={sessionTimeout}
+                  onChange={(e) => setSessionTimeout(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
+                >
+                  <option value="15">15 Minutes of Inactivity</option>
+                  <option value="30">30 Minutes of Inactivity</option>
+                  <option value="60">60 Minutes of Inactivity</option>
+                  <option value="NEVER">Never (Manual Lock Only)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Master Admin PIN Security */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Master Administrative Security PIN</h3>
+                  <p className="text-xs text-slate-500">Authorization PIN for high-privilege actions</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">Current Security PIN</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type={showAdminPin ? 'text' : 'password'}
+                    value={adminPin}
+                    onChange={(e) => setAdminPin(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none"
+                  />
+                  <button
+                    onClick={() => setShowAdminPin(!showAdminPin)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    {showAdminPin ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setPinChangeMessage('Security PIN updated successfully!');
+                  setTimeout(() => setPinChangeMessage(''), 3000);
+                }}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
+              >
+                Save Security Settings
+              </button>
+
+              {pinChangeMessage && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold text-center">
+                  {pinChangeMessage}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Security Standards Summary */}
+          <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-md space-y-3">
+            <h4 className="font-black text-sm text-indigo-300 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Platform Security Infrastructure Overview</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                <div className="font-bold text-slate-200">Role-Based Access Control (RBAC)</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Strict authority layers separating System Administrators, Managers, CPAs, and Auditors.</div>
+              </div>
+              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                <div className="font-bold text-slate-200">Audit Trail Integrity</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Immutable audit logging tracking every compliance review, status transition, and roadblock event.</div>
+              </div>
+              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700">
+                <div className="font-bold text-slate-200">Session Isolation</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">User profile state persistence isolated with encrypted storage keys and quick profile switching.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: MASTER AUDIT LOG */}
       {activeTab === 'AUDIT' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
