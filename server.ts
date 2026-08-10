@@ -97,7 +97,21 @@ Keep it structured with bullet points.`;
 
 // Health check
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", app: "Bookskonnect" });
+  res.json({ 
+    status: "ok", 
+    app: "Bookskonnect", 
+    hasDatabase: Boolean(process.env.DATABASE_URL) 
+  });
+});
+
+app.get("/api/db/status", async (_req, res) => {
+  try {
+    const { getDb } = await import("./src/db/index");
+    const db = getDb();
+    res.json({ connected: true, provider: "Cloud SQL PostgreSQL" });
+  } catch (err: any) {
+    res.status(500).json({ connected: false, error: err.message });
+  }
 });
 
 async function startServer() {
