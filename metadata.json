@@ -1,0 +1,6 @@
+{
+  "name": "Bookskonnect",
+  "description": "Internal Accounting & Tax Team Collaboration Feed with compliance tracking, roadblock flagging, client directory, and AI CPA assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
