@@ -17,11 +17,12 @@ import {
   UserPlus,
   LogOut,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 
 interface HeaderProps {
-  currentUser: User;
+  currentUser: User | null;
   onSelectUser: (user: User) => void;
   activeTab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN';
   setActiveTab: (tab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN') => void;
@@ -36,6 +37,7 @@ interface HeaderProps {
   allUsers?: User[];
   onOpenAuthModal?: (mode?: 'LOGIN' | 'SIGNUP') => void;
   onLogout?: () => void;
+  dbConnected?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -54,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   allUsers = [],
   onOpenAuthModal,
   onLogout,
+  dbConnected = false,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = React.useState(false);
   const totalDueAlerts = overdueCount + approachingCount;
@@ -74,12 +77,19 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                   CPAs & Tax Feed
                 </span>
+                {dbConnected && (
+                  <span className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    <span className="hidden sm:inline">PostgreSQL Live</span>
+                  </span>
+                )}
               </div>
               <span className="text-xs text-slate-500 font-medium mt-0.5 block">
                 Accounting Team Intelligence & Compliance
               </span>
             </div>
           </div>
+
 
           {/* Navigation Tabs */}
           <nav className="hidden sm:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">

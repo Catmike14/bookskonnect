@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
@@ -106,13 +106,323 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/db/status", async (_req, res) => {
   try {
-    const { getDb } = await import("./src/db/index");
-    const db = getDb();
-    res.json({ connected: true, provider: "Cloud SQL PostgreSQL" });
+    const { getDb, ensureTablesExist } = await import("./src/db/index");
+    await ensureTablesExist();
+    res.json({ connected: true, provider: "PostgreSQL Database" });
   } catch (err: any) {
     res.status(500).json({ connected: false, error: err.message });
   }
 });
+
+// Bootstrap endpoint to load initial state or seed PostgreSQL database
+app.get("/api/bootstrap", async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ success: true, dbConnected: false });
+  }
+
+  try {
+    const { getDb, ensureTablesExist } = await import("./src/db/index");
+    const { users, clients, tasks, taxDeadlines } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { TEAM_USERS, INITIAL_CLIENTS, INITIAL_TASKS, INITIAL_DEADLINES } = await import("./src/data/initialData");
+
+    await ensureTablesExist();
+    const db = getDb();
+
+    let dbUsers = await db.select().from(users);
+    let dbClients = await db.select().from(clients);
+    let dbTasks = await db.select().from(tasks);
+    let dbDeadlines = await db.select().from(taxDeadlines);
+
+    // Seed if empty
+    if (dbUsers.length === 0) {
+      for (const u of TEAM_USERS) {
+        await db.insert(users).values({
+          id: u.id,
+          name: u.name,
+          role: u.role,
+          avatar: u.avatar,
+          email: u.email
+        }).onConflictDoNothing();
+      }
+      dbUsers = await db.select().from(users);
+    }
+
+    if (dbClients.length === 0) {
+      for (const c of INITIAL_CLIENTS) {
+        await db.insert(clients).values({
+          id: c.id,
+          name: c.name,
+          industry: c.industry,
+          tin: c.tin,
+          activeEngagementsCount: c.activeEngagementsCount,
+          managerInCharge: c.managerInCharge,
+          healthStatus: c.healthStatus,
+          contactEmail: c.contactEmail,
+          contactPhone: c.contactPhone,
+          notes: c.notes
+        }).onConflictDoNothing();
+      }
+      dbClients = await db.select().from(clients);
+    }
+
+    if (dbTasks.length === 0) {
+      for (const t of INITIAL_TASKS) {
+        await db.insert(tasks).values({
+          id: t.id,
+          title: t.title,
+          clientName: t.clientName,
+          description: t.description,
+          status: t.status,
+          category: t.category,
+          priority: t.priority,
+          dueDate: t.dueDate,
+          flagged: t.flagged,
+          flagReason: t.flagReason,
+          flagDate: t.flagDate,
+          creatorJson: t.creator as any,
+          assigneeJson: t.assignee as any,
+          commentsJson: (t.comments || []) as any,
+          reactionsJson: (t.reactions || {}) as any,
+          auditLogJson: (t.auditLog || []) as any,
+          attachmentsJson: (t.attachments || []) as any,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt
+        }).onConflictDoNothing();
+      }
+      dbTasks = await db.select().from(tasks);
+    }
+
+    if (dbDeadlines.length === 0) {
+      for (const d of INITIAL_DEADLINES) {
+        await db.insert(taxDeadlines).values({
+          id: d.id,
+          formCode: d.formCode,
+          name: d.name,
+          deadlineDate: d.deadlineDate,
+          description: d.description,
+          status: d.status
+        }).onConflictDoNothing();
+      }
+      dbDeadlines = await db.select().from(taxDeadlines);
+    }
+
+    // Format tasks to match frontend interface
+    const formattedTasks = dbTasks.map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      clientName: t.clientName,
+      description: t.description,
+      status: t.status,
+      category: t.category,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      flagged: t.flagged,
+      flagReason: t.flagReason,
+      flagDate: t.flagDate,
+      creator: t.creatorJson,
+      assignee: t.assigneeJson,
+      comments: t.commentsJson || [],
+      reactions: t.reactionsJson || {},
+      auditLog: t.auditLogJson || [],
+      attachments: t.attachmentsJson || [],
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      dbConnected: true,
+      users: dbUsers,
+      clients: dbClients,
+      tasks: formattedTasks,
+      deadlines: dbDeadlines
+    });
+  } catch (err: any) {
+    console.error("Bootstrap database notice:", err.message);
+    const isRenderInternal = process.env.DATABASE_URL?.includes('dpg-') && !process.env.DATABASE_URL?.includes('.render.com');
+    const hint = isRenderInternal 
+      ? "DATABASE_URL appears to be a Render internal hostname (dpg-...). For external connections outside Render, use Render's External Database URL (ending in .render.com)."
+      : err.message;
+      
+    res.json({ 
+      success: true, 
+      dbConnected: false, 
+      warning: hint 
+    });
+  }
+});
+
+// Sync/Save Task
+app.post("/api/tasks", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { tasks } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const t = req.body;
+
+    if (t.id) {
+      const existing = await db.select().from(tasks).where(eq(tasks.id, t.id));
+      if (existing.length > 0) {
+        await db.update(tasks).set({
+          title: t.title,
+          clientName: t.clientName,
+          description: t.description,
+          status: t.status,
+          category: t.category,
+          priority: t.priority,
+          dueDate: t.dueDate,
+          flagged: Boolean(t.flagged),
+          flagReason: t.flagReason,
+          flagDate: t.flagDate,
+          creatorJson: t.creator as any,
+          assigneeJson: t.assignee as any,
+          commentsJson: (t.comments || []) as any,
+          reactionsJson: (t.reactions || {}) as any,
+          auditLogJson: (t.auditLog || []) as any,
+          attachmentsJson: (t.attachments || []) as any,
+          updatedAt: t.updatedAt || new Date().toISOString()
+        }).where(eq(tasks.id, t.id));
+        return res.json({ success: true, taskId: t.id });
+      }
+    }
+
+    const [inserted] = await db.insert(tasks).values({
+      title: t.title,
+      clientName: t.clientName,
+      description: t.description,
+      status: t.status,
+      category: t.category,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      flagged: Boolean(t.flagged),
+      flagReason: t.flagReason,
+      flagDate: t.flagDate,
+      creatorJson: t.creator as any,
+      assigneeJson: t.assignee as any,
+      commentsJson: (t.comments || []) as any,
+      reactionsJson: (t.reactions || {}) as any,
+      auditLogJson: (t.auditLog || []) as any,
+      attachmentsJson: (t.attachments || []) as any,
+      createdAt: t.createdAt || new Date().toISOString(),
+      updatedAt: t.updatedAt || new Date().toISOString()
+    }).returning();
+
+    res.json({ success: true, taskId: inserted.id });
+  } catch (err: any) {
+    console.error("Save task error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete Task
+app.delete("/api/tasks/:id", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { tasks } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    await db.delete(tasks).where(eq(tasks.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Sync Client
+app.post("/api/clients", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { clients } = await import("./src/db/schema");
+    const db = getDb();
+    const c = req.body;
+    const [inserted] = await db.insert(clients).values({
+      name: c.name,
+      industry: c.industry,
+      tin: c.tin,
+      activeEngagementsCount: c.activeEngagementsCount || 0,
+      managerInCharge: c.managerInCharge,
+      healthStatus: c.healthStatus,
+      contactEmail: c.contactEmail,
+      contactPhone: c.contactPhone,
+      notes: c.notes || ''
+    }).returning();
+    res.json({ success: true, client: inserted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update Client Notes/Health
+app.put("/api/clients/:id", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { clients } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const { notes, healthStatus } = req.body;
+    await db.update(clients).set({
+      ...(notes !== undefined ? { notes } : {}),
+      ...(healthStatus ? { healthStatus } : {})
+    }).where(eq(clients.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete Client
+app.delete("/api/clients/:id", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { clients } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    await db.delete(clients).where(eq(clients.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete User
+app.delete("/api/users/:id", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { users } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    await db.delete(users).where(eq(users.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Clear / Reset all demo data tables
+app.post("/api/reset", async (_req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { tasks, clients, taxDeadlines } = await import("./src/db/schema");
+    const db = getDb();
+    await db.delete(tasks);
+    await db.delete(clients);
+    await db.delete(taxDeadlines);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

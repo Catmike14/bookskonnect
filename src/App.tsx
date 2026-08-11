@@ -11,6 +11,7 @@ import { TeamDirectory } from './components/TeamDirectory';
 import { AdminPanel } from './components/AdminPanel';
 import { AICpaAssistantModal } from './components/AICpaAssistantModal';
 import { AuthModal } from './components/AuthModal';
+import { LandingPage } from './components/LandingPage';
 import { ToastNotificationContainer, ToastAlert } from './components/ToastNotification';
 import { 
   Inbox, 
@@ -30,20 +31,17 @@ export default function App() {
     const saved = localStorage.getItem('bk_registered_users');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        const ids = new Set(TEAM_USERS.map(u => u.id));
-        const customOnly = parsed.filter((u: User) => !ids.has(u.id));
-        return [...TEAM_USERS, ...customOnly];
+        return JSON.parse(saved);
       } catch (e) {
-        return TEAM_USERS;
+        return [];
       }
     }
-    return TEAM_USERS;
+    return [];
   });
 
-  const [currentUser, setCurrentUser] = useState<User>(() => {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('bk_user');
-    return saved ? JSON.parse(saved) : TEAM_USERS[0];
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -67,6 +65,32 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastAlert[]>([]);
 
+  // State for PostgreSQL connectivity badge
+  const [dbConnected, setDbConnected] = useState<boolean>(false);
+
+  // Bootstrap from API on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBootstrap() {
+      try {
+        const res = await fetch('/api/bootstrap');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success && data.dbConnected) {
+            setDbConnected(true);
+            setAllUsers(data.users && data.users.length ? data.users : TEAM_USERS);
+            setClients(data.clients || []);
+            setTasks(data.tasks || []);
+          }
+        }
+      } catch (err) {
+        // Fallback to localStorage
+      }
+    }
+    loadBootstrap();
+    return () => { isMounted = false; };
+  }, []);
+
   // Admin Management Handlers
   const handleUpdateUserRole = (userId: number, newRole: Role) => {
     setAllUsers(prev => prev.map(u => {
@@ -75,18 +99,21 @@ export default function App() {
       }
       return u;
     }));
-    if (currentUser.id === userId) {
-      setCurrentUser(prev => ({ ...prev, role: newRole }));
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser(prev => prev ? ({ ...prev, role: newRole }) : null);
     }
   };
 
   const handleDeleteUser = (userId: number) => {
     setAllUsers(prev => prev.filter(u => u.id !== userId));
+    fetch(`/api/users/${userId}`, { method: 'DELETE' }).catch(() => {});
   };
 
   const handleDeleteTask = (taskId: number) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    fetch(`/api/tasks/${taskId}`, { method: 'DELETE' }).catch(() => {});
   };
+
 
   const handleRestoreData = (importedData: { tasks?: Task[]; clients?: Client[]; users?: User[] }) => {
     if (importedData.tasks) setTasks(importedData.tasks);
@@ -110,6 +137,8 @@ export default function App() {
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
+    localStorage.setItem('bk_user', JSON.stringify(user));
+    setIsAuthModalOpen(false);
     // Add success toast
     setToasts(prev => [
       {
@@ -124,8 +153,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setCurrentUser(TEAM_USERS[0]);
-    setIsAuthModalOpen(true);
+    setCurrentUser(null);
+    localStorage.removeItem('bk_user');
+    setIsAuthModalOpen(false);
     setToasts(prev => [
       {
         id: 'logout-' + Date.now(),
@@ -205,6 +235,14 @@ export default function App() {
   }, [currentUser]);
 
   // Handlers
+  const syncTaskApi = (task: Task) => {
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(task)
+    }).catch(() => {});
+  };
+
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => {
     const newTask: Task = {
       ...newTaskData,
@@ -224,12 +262,13 @@ export default function App() {
     };
 
     setTasks([newTask, ...tasks]);
+    syncTaskApi(newTask);
   };
 
   const handleUpdateStatus = (taskId: number, newStatus: TaskStatus) => {
     setTasks(prev => prev.map(t => {
       if (t.id === taskId) {
-        return {
+        const updated = {
           ...t,
           status: newStatus,
           updatedAt: new Date().toISOString(),
@@ -243,6 +282,8 @@ export default function App() {
             }
           ]
         };
+        syncTaskApi(updated);
+        return updated;
       }
       return t;
     }));
@@ -252,7 +293,7 @@ export default function App() {
     setTasks(prev => prev.map(t => {
       if (t.id === taskId) {
         const nextFlagState = !currentFlagged;
-        return {
+        const updated = {
           ...t,
           flagged: nextFlagState,
           flagReason: nextFlagState ? (reason || 'Roadblock requiring attention') : null,
@@ -268,6 +309,8 @@ export default function App() {
             }
           ]
         };
+        syncTaskApi(updated);
+        return updated;
       }
       return t;
     }));
@@ -282,11 +325,13 @@ export default function App() {
           content,
           createdAt: new Date().toISOString()
         };
-        return {
+        const updated = {
           ...t,
           comments: [...t.comments, newComment],
           updatedAt: new Date().toISOString()
         };
+        syncTaskApi(updated);
+        return updated;
       }
       return t;
     }));
@@ -301,13 +346,15 @@ export default function App() {
           ? currentList.filter(name => name !== currentUser.name)
           : [...currentList, currentUser.name];
 
-        return {
+        const updated = {
           ...t,
           reactions: {
             ...t.reactions,
             [reactionType]: updatedList
           }
         };
+        syncTaskApi(updated);
+        return updated;
       }
       return t;
     }));
@@ -319,6 +366,11 @@ export default function App() {
       id: Date.now()
     };
     setClients([...clients, newClient]);
+    fetch('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newClient)
+    }).catch(() => {});
   };
 
   const handleUpdateClientNotes = (clientId: number, newNotes: string, newHealth?: Client['healthStatus']) => {
@@ -332,20 +384,31 @@ export default function App() {
       }
       return c;
     }));
+    fetch(`/api/clients/${clientId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: newNotes, healthStatus: newHealth })
+    }).catch(() => {});
   };
 
   const handleDeleteClient = (clientId: number) => {
     setClients(prev => prev.filter(c => c.id !== clientId));
+    fetch(`/api/clients/${clientId}`, { method: 'DELETE' }).catch(() => {});
   };
 
+
   const handleResetDataToDefault = () => {
-    if (confirm('Reset demo data to initial firm state?')) {
+    if (confirm('Clear all data and reset firm state to clean empty workspace?')) {
       localStorage.removeItem('bk_tasks');
       localStorage.removeItem('bk_clients');
-      setTasks(INITIAL_TASKS);
-      setClients(INITIAL_CLIENTS);
+      localStorage.removeItem('bk_users');
+      setTasks([]);
+      setClients([]);
+      setAllUsers(TEAM_USERS);
+      fetch('/api/reset', { method: 'POST' }).catch(() => {});
     }
   };
+
 
   // Filter Tasks
   const todayStr = new Date().toISOString().split('T')[0];
@@ -432,6 +495,16 @@ export default function App() {
     setToasts(newToasts.slice(0, 4));
   };
 
+  if (!currentUser) {
+    return (
+      <LandingPage
+        allUsers={allUsers}
+        onLoginSuccess={handleLoginSuccess}
+        onRegisterUser={handleRegisterUser}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans antialiased selection:bg-emerald-500 selection:text-white">
       
@@ -455,6 +528,7 @@ export default function App() {
         allUsers={allUsers}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        dbConnected={dbConnected}
       />
 
       {/* Main Body */}
