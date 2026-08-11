@@ -209,7 +209,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              Bookskonnect brings your accounting staff, senior CPAs, and managers into a unified real-time broadcast feed. Track client health, flag audit roadblocks, and automate BIR tax deadlines securely.
+              Our accounting platform brings your staff, senior CPAs, and managers into a unified real-time broadcast feed. Track client health, flag audit roadblocks, and automate BIR tax deadlines securely.
             </p>
 
             <div className="space-y-3 pt-2">
@@ -391,7 +391,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-3 text-center text-xl tracking-widest font-mono text-white placeholder-slate-600 focus:outline-none transition-colors"
                     />
                     <span className="text-[10px] text-slate-500 block text-center mt-1">
-                      (Demo mode: enter any 6 numbers, e.g. 123456)
+                      (Enter any 6 numbers, e.g. 123456)
                     </span>
                   </div>
 
@@ -554,9 +554,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-400" />
-            <span>Bookskonnect Internal Accounting Feed • PostgreSQL Ready</span>
+            <span>Internal Accounting Feed • PostgreSQL Ready</span>
           </div>
-          <span>© {new Date().getFullYear()} Bookskonnect Inc. Secure Login Portal.</span>
+          <span>© {new Date().getFullYear()} Secure Login Portal.</span>
         </div>
       </footer>
     </div>

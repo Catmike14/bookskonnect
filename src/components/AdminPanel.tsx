@@ -43,6 +43,8 @@ interface AdminPanelProps {
   onForceUpdateTaskStatus: (taskId: number, status: TaskStatus) => void;
   onResetData: () => void;
   onRestoreData?: (importedData: { tasks?: Task[]; clients?: Client[]; users?: User[] }) => void;
+  aiEnabled?: boolean;
+  onToggleAiEnabled?: (enabled: boolean) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -58,6 +60,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onForceUpdateTaskStatus,
   onResetData,
   onRestoreData,
+  aiEnabled = true,
+  onToggleAiEnabled,
 }) => {
   const [activeTab, setActiveTab] = useState<'USERS' | 'DATA' | 'TASKS' | 'AUDIT' | 'SECURITY'>('USERS');
   
@@ -820,6 +824,49 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
+            {/* AI CPA Assistant & Gemini Integration Control */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">AI CPA Assistant & Gemini Draft Controls</h3>
+                  <p className="text-xs text-slate-500">Toggle visibility and access to AI Assistant modal & Gemini draft generator</p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between gap-3">
+                <div className="pr-2">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    AI CPA Assistant & Gemini Features
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      aiEnabled !== false
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border-rose-300'
+                    }`}>
+                      {aiEnabled !== false ? 'ENABLED' : 'DISABLED'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                    {aiEnabled !== false
+                      ? "AI CPA Assistant button in header and 'AI Draft with Gemini' button in broadcast posts are active for all users."
+                      : "AI CPA Assistant button in header and 'AI Draft with Gemini' buttons are hidden across the entire application."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onToggleAiEnabled && onToggleAiEnabled(aiEnabled === false)}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition cursor-pointer shrink-0 ${
+                    aiEnabled !== false ? 'bg-teal-600 justify-end' : 'bg-slate-300 justify-start'
+                  }`}
+                  title={aiEnabled !== false ? "Disable AI CPA Assistant and Gemini Draft" : "Enable AI CPA Assistant and Gemini Draft"}
+                >
+                  <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                </button>
+              </div>
+            </div>
+
             {/* Security Guard Controls */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">

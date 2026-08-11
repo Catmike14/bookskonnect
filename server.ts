@@ -84,7 +84,7 @@ app.post("/api/gemini/assist", async (req, res) => {
     const { action, prompt, context } = req.body;
     const ai = getGeminiClient();
 
-    let systemInstruction = "You are an expert CPA (Certified Public Accountant) and Tax Advisor assistant for an internal accounting firm team collaboration platform called Bookskonnect. Provide concise, accurate, professional, and practical advice tailored for bookkeepers, auditors, and tax specialists.";
+    let systemInstruction = "You are an expert CPA (Certified Public Accountant) and Tax Advisor assistant for an internal accounting firm team collaboration platform. Provide concise, accurate, professional, and practical advice tailored for bookkeepers, auditors, and tax specialists.";
 
     let userPrompt = "";
 
@@ -95,7 +95,7 @@ Title/Topic: ${context?.title || "Filing Update"}
 Category: ${context?.category || "General Bookkeeping"}
 Notes: ${prompt || "Routine progress update"}
 
-Provide a clean, bulleted or short paragraph draft suitable for posting on Bookskonnect.`;
+Provide a clean, bulleted or short paragraph draft suitable for posting on the accounting team feed.`;
     } else if (action === "tax_checklist") {
       userPrompt = `Provide a short 3-5 point compliance checklist and required supporting documents for filing/handling "${prompt || context?.category || "VAT Return 2550Q"}". Keep it actionable for a staff auditor or bookkeeper.`;
     } else if (action === "roadblock_resolution") {
@@ -146,7 +146,7 @@ Keep it structured with bullet points.`;
 app.get("/api/health", (_req, res) => {
   res.json({ 
     status: "ok", 
-    app: "Bookskonnect", 
+    app: "Accounting Portal", 
     hasDatabase: Boolean(process.env.DATABASE_URL) 
   });
 });
@@ -612,7 +612,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Bookskonnect] Server running on http://0.0.0.0:${PORT}`);
+    console.log(`[Accounting Portal] Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

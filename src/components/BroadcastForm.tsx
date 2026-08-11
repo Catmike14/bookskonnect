@@ -24,9 +24,10 @@ interface BroadcastFormProps {
   currentUser: User;
   allUsers?: User[];
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => void;
+  aiEnabled?: boolean;
 }
 
-export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask }) => {
+export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask, aiEnabled = true }) => {
   const userList = allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []);
   const [clientName, setClientName] = useState('');
   const [customClient, setCustomClient] = useState('');
@@ -406,24 +407,26 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider">
               Context & Instructions
             </label>
-            <button
-              type="button"
-              onClick={handleGenerateAiDraft}
-              disabled={isDraftingAi}
-              className="text-[11px] font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
-            >
-              {isDraftingAi ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Generating Draft...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>AI Draft with Gemini</span>
-                </>
-              )}
-            </button>
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={handleGenerateAiDraft}
+                disabled={isDraftingAi}
+                className="text-[11px] font-bold text-teal-700 hover:text-teal-900 flex items-center gap-1 transition cursor-pointer disabled:opacity-50"
+              >
+                {isDraftingAi ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Generating Draft...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>AI Draft with Gemini</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           <textarea

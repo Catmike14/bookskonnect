@@ -49,12 +49,12 @@ export const ComplianceAnalytics: React.FC<ComplianceAnalyticsProps> = ({ tasks,
 
   const handleExportTasksCsv = () => {
     const csv = exportTasksToCsv(tasks);
-    downloadCsv(`Bookskonnect_Compliance_Feed_Tasks_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadCsv(`Compliance_Feed_Tasks_${new Date().toISOString().split('T')[0]}.csv`, csv);
   };
 
   const handleExportClientsCsv = () => {
     const csv = exportClientsToCsv(clients);
-    downloadCsv(`Bookskonnect_Clients_Directory_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadCsv(`Clients_Directory_${new Date().toISOString().split('T')[0]}.csv`, csv);
   };
 
   // Prepare data for Status Pie Chart

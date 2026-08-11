@@ -46,7 +46,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [pending2FAUser, setPending2FAUser] = useState<User | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [enable2FA, setEnable2FA] = useState(true);
-  const [showDemoShortcuts, setShowDemoShortcuts] = useState(false);
 
   // Signup form state
   const [signupName, setSignupName] = useState('');
@@ -129,17 +128,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handleQuickLogin = (user: User) => {
-    if (enable2FA) {
-      setPending2FAUser(user);
-      setTwoFactorCode('884920'); // Autofill sample 2FA
-      setMode('2FA');
-    } else {
-      onLoginSuccess(user);
-      onClose();
-    }
-  };
-
   const handleSignupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError('');
@@ -220,9 +208,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                Bookskonnect
+                Accounting Portal
                 <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  CPA Auth
+                  Secure Auth
                 </span>
               </h2>
               <p className="text-xs text-slate-300">
@@ -292,7 +280,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full text-center tracking-widest text-lg font-black py-3 bg-slate-50 border border-slate-300 rounded-2xl outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
                   />
                   <p className="text-[10px] text-slate-400 text-center mt-1">
-                    Demo Code pre-filled or enter any 6 digits to verify session token.
+                    Enter any 6 digits to verify session token.
                   </p>
                 </div>
 
@@ -377,82 +365,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </form>
 
-              {/* Quick Switch Demo Accounts Option */}
-              <div className="pt-4 border-t border-slate-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Demo Account Shortcuts
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowDemoShortcuts(!showDemoShortcuts)}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition cursor-pointer"
-                  >
-                    {showDemoShortcuts ? 'Hide Demo Shortcuts' : 'Show Demo Quick-Login Shortcuts'}
-                  </button>
-                </div>
-
-                {showDemoShortcuts && (
-                  <div className="space-y-3 pt-2">
-                    {/* Admin Master Highlight Card */}
-                    {allUsers.find(u => u.role === 'System Administrator') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const adminUser = allUsers.find(u => u.role === 'System Administrator');
-                          if (adminUser) {
-                            setLoginEmail(adminUser.email);
-                            setLoginPassword('admin123');
-                          }
-                        }}
-                        className="w-full p-3 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl border border-indigo-500/40 hover:border-indigo-400 flex items-center justify-between shadow-lg transition cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-600/40 border border-indigo-400/50 flex items-center justify-center text-indigo-300 font-bold">
-                            <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                          </div>
-                          <div className="text-left">
-                            <div className="text-xs font-black text-white flex items-center gap-2">
-                              Admin Master Account
-                              <span className="bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 text-[9px] font-bold px-2 py-0.2 rounded-full uppercase">
-                                Pre-fill Admin Credentials
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-300">admin@gmail.com (Password: admin123)</div>
-                          </div>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition" />
-                      </button>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {allUsers.filter(u => u.role !== 'System Administrator').slice(0, 6).map((u) => (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => handleQuickLogin(u)}
-                          className="flex items-center gap-3 p-2.5 bg-slate-50 hover:bg-emerald-50/80 border border-slate-200 hover:border-emerald-300 rounded-xl text-left transition cursor-pointer group"
-                        >
-                          <img
-                            src={u.avatar}
-                            alt={u.name}
-                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 group-hover:ring-emerald-400"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900 truncate">
-                              {u.name}
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-medium truncate">
-                              {u.role}
-                            </div>
-                          </div>
-                          <ShieldCheck className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 shrink-0" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
             /* Sign Up Form */

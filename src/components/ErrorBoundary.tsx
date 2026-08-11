@@ -30,7 +30,7 @@ export class ErrorBoundary extends ReactComponent {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Uncaught error caught by Bookskonnect ErrorBoundary:', error, errorInfo);
+    console.error('Uncaught error caught by ErrorBoundary:', error, errorInfo);
   }
 
   handleReset = () => {
@@ -50,7 +50,7 @@ export class ErrorBoundary extends ReactComponent {
             <div className="space-y-2">
               <h2 className="text-xl font-black text-white tracking-tight">System Exception Intercepted</h2>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Bookskonnect encountered an unexpected view error. Your data and account session remain safe.
+                The accounting platform encountered an unexpected view error. Your data and account session remain safe.
               </p>
             </div>
 

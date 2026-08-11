@@ -65,6 +65,17 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastAlert[]>([]);
 
+  // AI CPA Assistant & Gemini Features Enable/Disable State
+  const [aiEnabled, setAiEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('bk_ai_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleToggleAiEnabled = (enabled: boolean) => {
+    setAiEnabled(enabled);
+    localStorage.setItem('bk_ai_enabled', String(enabled));
+  };
+
   // State for PostgreSQL connectivity badge
   const [dbConnected, setDbConnected] = useState<boolean>(false);
 
@@ -555,7 +566,9 @@ export default function App() {
         setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onOpenAiAssistant={() => setIsAiModalOpen(true)}
+        onOpenAiAssistant={() => {
+          if (aiEnabled) setIsAiModalOpen(true);
+        }}
         flaggedCount={flaggedCount}
         openTasksCount={openTasksCount}
         overdueCount={overdueCount}
@@ -565,6 +578,7 @@ export default function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         dbConnected={dbConnected}
+        aiEnabled={aiEnabled}
       />
 
       {/* Pending Account Banner */}
@@ -592,6 +606,7 @@ export default function App() {
                 currentUser={currentUser}
                 allUsers={allUsers}
                 onAddTask={handleAddTask}
+                aiEnabled={aiEnabled}
               />
             </div>
 
@@ -740,6 +755,8 @@ export default function App() {
             onForceUpdateTaskStatus={handleUpdateStatus}
             onResetData={handleResetDataToDefault}
             onRestoreData={handleRestoreData}
+            aiEnabled={aiEnabled}
+            onToggleAiEnabled={handleToggleAiEnabled}
           />
         )}
 
@@ -754,12 +771,14 @@ export default function App() {
         onRegisterUser={handleRegisterUser}
       />
 
-      {/* AI CPA Assistant Modal */}
-      <AICpaAssistantModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        tasks={tasks}
-      />
+      {/* AI CPA Assistant Modal (conditionally rendered when AI features are enabled) */}
+      {aiEnabled && (
+        <AICpaAssistantModal
+          isOpen={isAiModalOpen}
+          onClose={() => setIsAiModalOpen(false)}
+          tasks={tasks}
+        />
+      )}
 
       {/* Floating Due Date Toast Alerts */}
       <ToastNotificationContainer
@@ -778,7 +797,7 @@ export default function App() {
       <footer className="border-t border-slate-200 bg-white py-4 px-4 text-center text-xs text-slate-500 font-medium">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Bookskonnect</span>
+            <span className="font-bold text-slate-800">Accounting Portal</span>
             <span>— Internal Team Accounting Feed</span>
           </div>
           <div>
