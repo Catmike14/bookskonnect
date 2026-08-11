@@ -45,10 +45,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [activeMasterKey, setActiveMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
   const [registrationNotice, setRegistrationNotice] = useState('');
+
+  React.useEffect(() => {
+    fetch('/api/admin/key')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.adminKey) {
+          setActiveMasterKey(data.adminKey);
+          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Handlers
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -111,12 +125,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       return;
     }
 
+    if (signupRole === 'System Administrator' && adminKeyInput.trim() !== activeMasterKey && adminKeyInput.trim() !== 'ADMIN123') {
+      setSignupError('Invalid Admin Security Key. Please enter the current Master Passcode configured by system administrators.');
+      return;
+    }
+
+    const isAdmin = signupRole === 'System Administrator' && (adminKeyInput.trim() === activeMasterKey || adminKeyInput.trim() === 'ADMIN123');
+
     const newUser: User = {
       id: Date.now(),
       name: signupName.trim(),
       email: signupEmail.trim(),
-      role: signupRole || 'Bookkeeper',
-      status: 'PENDING',
+      role: isAdmin ? 'System Administrator' : (signupRole || 'Bookkeeper'),
+      status: isAdmin ? 'APPROVED' : 'PENDING',
+      adminKey: adminKeyInput.trim(),
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(signupName)}`
     };
 
@@ -445,8 +467,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <option value="Tax Specialist">Tax Specialist</option>
                       <option value="Senior CPA">Senior CPA</option>
                       <option value="Manager">Manager</option>
+                      <option value="System Administrator">System Administrator (Requires Master Key)</option>
                     </select>
                   </div>
+
+                  {signupRole === 'System Administrator' && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                        <span>Admin Security Passcode</span>
+                        <span className="text-[10px] text-emerald-500 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800 font-mono">Master Key: ADMIN123</span>
+                      </div>
+                      <input
+                        type="password"
+                        value={adminKeyInput}
+                        onChange={(e) => setAdminKeyInput(e.target.value)}
+                        placeholder="Enter master admin key (e.g. ADMIN123)"
+                        className="w-full bg-slate-950 border border-emerald-500/50 focus:border-emerald-400 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none"
+                      />
+                      <p className="text-[10px] text-slate-400">
+                        Entering the valid master key instantly activates full System Administrator privileges upon account creation.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>

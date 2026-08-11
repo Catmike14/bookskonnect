@@ -149,10 +149,11 @@ export default function App() {
   }, [allUsers]);
 
   const handleRegisterUser = (newUser: User) => {
+    const isAdmin = newUser.role === 'System Administrator' && newUser.adminKey === 'ADMIN123';
     const userToSave: User = {
       ...newUser,
-      role: newUser.role || 'Bookkeeper',
-      status: newUser.status || 'PENDING'
+      role: isAdmin ? 'System Administrator' : (newUser.role || 'Bookkeeper'),
+      status: isAdmin ? 'APPROVED' : (newUser.status || 'PENDING')
     };
     setAllUsers(prev => {
       if (prev.some(u => u.id === userToSave.id || u.email.toLowerCase() === userToSave.email.toLowerCase())) {
@@ -163,7 +164,10 @@ export default function App() {
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userToSave)
+      body: JSON.stringify({
+        ...userToSave,
+        adminKey: newUser.adminKey
+      })
     }).catch(() => {});
   };
 

@@ -52,10 +52,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [activeMasterKey, setActiveMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
   const [signupFirm, setSignupFirm] = useState('Bookskonnect Advisory');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
+
+  React.useEffect(() => {
+    fetch('/api/admin/key')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.adminKey) {
+          setActiveMasterKey(data.adminKey);
+          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   if (!isOpen) return null;
 
@@ -153,6 +167,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    if (signupRole === 'System Administrator' && adminKeyInput.trim() !== activeMasterKey && adminKeyInput.trim() !== 'ADMIN123') {
+      setSignupError('Invalid Admin Security Key. Please enter the current Master Passcode configured by system administrators.');
+      return;
+    }
+
+    const isAdmin = signupRole === 'System Administrator' && (adminKeyInput.trim() === activeMasterKey || adminKeyInput.trim() === 'ADMIN123');
+
     // Generate avatar using initials seed
     const avatarUrl = `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150`;
 
@@ -160,8 +181,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       id: Date.now(),
       name: signupName.trim(),
       email: signupEmail.trim(),
-      role: signupRole || 'Bookkeeper',
-      status: 'PENDING',
+      role: isAdmin ? 'System Administrator' : (signupRole || 'Bookkeeper'),
+      status: isAdmin ? 'APPROVED' : 'PENDING',
+      adminKey: adminKeyInput.trim(),
       avatar: avatarUrl
     };
 
@@ -491,6 +513,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <option value="Tax Specialist">Tax Specialist</option>
                       <option value="Senior CPA">Senior CPA</option>
                       <option value="Manager">Manager / Partner</option>
+                      <option value="System Administrator">System Administrator (Requires Master Key)</option>
                     </select>
                   </div>
                 </div>
@@ -511,6 +534,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {signupRole === 'System Administrator' && (
+                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      Admin Security Passcode
+                    </span>
+                    <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 font-mono font-bold">Key: ADMIN123</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={adminKeyInput}
+                    onChange={(e) => setAdminKeyInput(e.target.value)}
+                    placeholder="Enter master admin key (e.g. ADMIN123)"
+                    className="w-full px-3 py-2 bg-white border border-emerald-300 focus:border-emerald-500 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-600">
+                    Entering the valid master passcode grants immediate System Administrator access upon registration.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

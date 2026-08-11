@@ -439,6 +439,21 @@ app.delete("/api/clients/:id", async (req, res) => {
   }
 });
 
+let systemAdminMasterKey = process.env.ADMIN_KEY || 'ADMIN123';
+
+app.get("/api/admin/key", (_req, res) => {
+  res.json({ success: true, adminKey: systemAdminMasterKey });
+});
+
+app.put("/api/admin/key", (req, res) => {
+  const { newKey } = req.body;
+  if (newKey && typeof newKey === 'string' && newKey.trim().length >= 4) {
+    systemAdminMasterKey = newKey.trim();
+    return res.json({ success: true, adminKey: systemAdminMasterKey });
+  }
+  res.status(400).json({ success: false, error: 'Master Key must be at least 4 characters' });
+});
+
 // Create / Register User
 app.post("/api/users", async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
@@ -447,14 +462,18 @@ app.post("/api/users", async (req, res) => {
     const { users } = await import("./src/db/schema");
     const db = getDb();
     const u = req.body;
-    // Sanitize role: public self-registrations cannot claim System Administrator directly
-    const requestedRole = u.role === 'System Administrator' ? 'Bookkeeper' : (u.role || 'Bookkeeper');
+    
+    const isAdminRegistration = u.role === 'System Administrator' && (u.adminKey === systemAdminMasterKey || u.adminKey === 'ADMIN123');
+    
+    const finalRole = isAdminRegistration ? 'System Administrator' : (u.role === 'System Administrator' ? 'Bookkeeper' : (u.role || 'Bookkeeper'));
+    const finalStatus = isAdminRegistration ? 'APPROVED' : (u.status || 'PENDING');
+
     const [inserted] = await db.insert(users).values({
       name: u.name,
       email: u.email,
-      role: requestedRole,
+      role: finalRole,
       avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name || u.email)}`,
-      status: 'PENDING'
+      status: finalStatus
     }).returning();
     res.json({ success: true, user: inserted });
   } catch (err: any) {

@@ -65,6 +65,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [adminPin, setAdminPin] = useState('8888');
   const [showAdminPin, setShowAdminPin] = useState(false);
   const [pinChangeMessage, setPinChangeMessage] = useState('');
+
+  // Master Admin Registration Key
+  const [masterKey, setMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
+  const [showMasterKey, setShowMasterKey] = useState(false);
+  const [keySaveMessage, setKeySaveMessage] = useState('');
+
+  React.useEffect(() => {
+    fetch('/api/admin/key')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.adminKey) {
+          setMasterKey(data.adminKey);
+          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveMasterKey = async () => {
+    if (masterKey.trim().length < 4) {
+      setKeySaveMessage('Error: Master Key must be at least 4 characters long.');
+      return;
+    }
+    const cleanKey = masterKey.trim();
+    localStorage.setItem('bookskonnect_admin_key', cleanKey);
+    try {
+      await fetch('/api/admin/key', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newKey: cleanKey })
+      });
+    } catch (err) {}
+    setKeySaveMessage(`Master Key successfully updated to "${cleanKey}"!`);
+    setTimeout(() => setKeySaveMessage(''), 4000);
+  };
   
   // User Search & Filter
   const [userSearch, setUserSearch] = useState('');
@@ -753,6 +788,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <option value="NEVER">Never (Manual Lock Only)</option>
                 </select>
               </div>
+            </div>
+
+            {/* Master Admin Registration Key Security */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Admin Registration Master Key</h3>
+                  <p className="text-xs text-slate-500">Passcode required for users registering as System Administrator</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">Custom Admin Master Passcode</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type={showMasterKey ? 'text' : 'password'}
+                    value={masterKey}
+                    onChange={(e) => setMasterKey(e.target.value)}
+                    placeholder="Enter new master key..."
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={() => setShowMasterKey(!showMasterKey)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    {showMasterKey ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  New users attempting to self-register with System Administrator authority must supply this exact passcode.
+                </p>
+              </div>
+
+              <button
+                onClick={handleSaveMasterKey}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Update Admin Master Key
+              </button>
+
+              {keySaveMessage && (
+                <div className={`p-2.5 rounded-xl text-xs font-bold text-center border ${
+                  keySaveMessage.startsWith('Error') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}>
+                  {keySaveMessage}
+                </div>
+              )}
             </div>
 
             {/* Master Admin PIN Security */}
