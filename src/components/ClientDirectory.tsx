@@ -62,7 +62,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
     tin: '',
     rdoCode: 'RDO 044 - Taguig / Pateros',
     secDtiNumber: '',
-    taxRegistrationType: 'VAT Registered (12%)',
+    taxRegistrationType: 'Corporation',
     applicableTaxes: [
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
@@ -142,7 +142,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       tin: '',
       rdoCode: 'RDO 044 - Taguig / Pateros',
       secDtiNumber: '',
-      taxRegistrationType: 'VAT Registered (12%)',
+      taxRegistrationType: 'Corporation',
       applicableTaxes: [
         'VAT (Form 2550Q)',
         'Compensation Withholding (Form 1601-C)',

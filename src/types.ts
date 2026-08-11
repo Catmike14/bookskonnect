@@ -117,10 +117,15 @@ export const COMMON_TAX_TYPES = [
 ];
 
 export const TAX_REGISTRATION_TYPES = [
+  '-- Select Type --',
+  'Corporation',
+  'One Person Corporation (OPC)',
+  'Sole Proprietorship',
+  'Partnership',
   'VAT Registered (12%)',
   'Non-VAT / Percentage Tax (3%)',
-  'Tax Exempt Entity',
   'PEZA / BOI Incentivized (5% GIT)',
+  'Tax Exempt Entity',
   'Zero-Rated Exporter',
   'Sole Proprietorship (8% Flat Rate)',
   'General Professional Partnership (GPP)'

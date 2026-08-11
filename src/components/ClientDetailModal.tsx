@@ -61,7 +61,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     tin: client.tin,
     rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
     secDtiNumber: client.secDtiNumber || '',
-    taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
+    taxRegistrationType: client.taxRegistrationType || 'Corporation',
     applicableTaxes: client.applicableTaxes || [
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
@@ -95,7 +95,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         tin: client.tin,
         rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
         secDtiNumber: client.secDtiNumber || '',
-        taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
+        taxRegistrationType: client.taxRegistrationType || 'Corporation',
         applicableTaxes: client.applicableTaxes || [
           'VAT (Form 2550Q)',
           'Compensation Withholding (Form 1601-C)',
