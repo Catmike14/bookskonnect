@@ -311,33 +311,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 </div>
 
-                {/* Switch User List */}
-                <div className="px-3 py-1 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Switch Team Profile</span>
-                </div>
-                
-                <div className="max-h-48 overflow-y-auto space-y-0.5 pr-0.5">
-                  {allUsers.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => {
-                        onSelectUser(user);
-                        setShowUserDropdown(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left text-xs transition cursor-pointer ${
-                        currentUser?.id === user.id ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold truncate">{user.name}</div>
-                        <div className="text-[10px] text-slate-500 truncate">{user.role}</div>
-                      </div>
-                      {currentUser?.id === user.id && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Logout Button */}
                 {onLogout && (
                   <div className="pt-2 mt-2 border-t border-slate-100">
