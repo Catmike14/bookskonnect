@@ -92,6 +92,7 @@ export interface Client {
   contactPhone: string;
   notes: string;
   // Extended Tax & Client Corporate Profile Fields
+  entityType?: string;
   rdoCode?: string;
   secDtiNumber?: string;
   taxRegistrationType?: string;
@@ -116,19 +117,24 @@ export const COMMON_TAX_TYPES = [
   'SSS / PhilHealth / Pag-IBIG Contributions'
 ];
 
-export const TAX_REGISTRATION_TYPES = [
-  '-- Select Type --',
+export const ENTITY_TYPES = [
+  '-- Select Entity Type --',
   'Corporation',
   'One Person Corporation (OPC)',
   'Sole Proprietorship',
   'Partnership',
+  'General Professional Partnership (GPP)',
+  'Cooperative'
+];
+
+export const TAX_REGISTRATION_TYPES = [
+  '-- Select Tax Reg Type --',
   'VAT Registered (12%)',
-  'Non-VAT / Percentage Tax (3%)',
+  'Non-VAT / Percentage Taxpayer (3%)',
   'PEZA / BOI Incentivized (5% GIT)',
   'Tax Exempt Entity',
   'Zero-Rated Exporter',
-  'Sole Proprietorship (8% Flat Rate)',
-  'General Professional Partnership (GPP)'
+  '8% Flat Rate Income Taxpayer'
 ];
 
 export const COMMON_RDO_CODES = [

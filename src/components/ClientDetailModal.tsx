@@ -3,6 +3,7 @@ import {
   Client, 
   Task, 
   COMMON_TAX_TYPES, 
+  ENTITY_TYPES,
   TAX_REGISTRATION_TYPES, 
   COMMON_RDO_CODES, 
   COMMON_RETAINER_SERVICES 
@@ -61,7 +62,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     tin: client.tin,
     rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
     secDtiNumber: client.secDtiNumber || '',
-    taxRegistrationType: client.taxRegistrationType || 'Corporation',
+    entityType: client.entityType || 'Corporation',
+    taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
     applicableTaxes: client.applicableTaxes || [
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
@@ -95,7 +97,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         tin: client.tin,
         rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
         secDtiNumber: client.secDtiNumber || '',
-        taxRegistrationType: client.taxRegistrationType || 'Corporation',
+        entityType: client.entityType || 'Corporation',
+        taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
         applicableTaxes: client.applicableTaxes || [
           'VAT (Form 2550Q)',
           'Compensation Withholding (Form 1601-C)',
@@ -463,7 +466,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-slate-500 font-semibold mb-1 block">BIR TIN</label>
                     <input
@@ -474,7 +477,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="text-slate-500 font-semibold mb-1 block">SEC / DTI Number</label>
+                    <label className="text-slate-500 font-semibold mb-1 block">SEC / DTI Registration Number</label>
                     <input
                       type="text"
                       value={formData.secDtiNumber}
@@ -482,8 +485,23 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-mono"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-slate-500 font-semibold mb-1 block">Tax Reg Type</label>
+                    <label className="text-slate-500 font-semibold mb-1 block">Entity / Organization Structure</label>
+                    <select
+                      value={formData.entityType}
+                      onChange={(e) => setFormData({ ...formData, entityType: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-medium"
+                    >
+                      {ENTITY_TYPES.map((type, i) => (
+                        <option key={i} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Tax Registration Type (BIR)</label>
                     <select
                       value={formData.taxRegistrationType}
                       onChange={(e) => setFormData({ ...formData, taxRegistrationType: e.target.value })}

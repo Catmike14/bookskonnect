@@ -22,6 +22,7 @@ export const clients = pgTable('clients', {
   contactPhone: text('contact_phone').notNull(),
   notes: text('notes').notNull(),
   rdoCode: text('rdo_code'),
+  entityType: text('entity_type'),
   secDtiNumber: text('sec_dti_number'),
   taxRegistrationType: text('tax_registration_type'),
   applicableTaxesJson: jsonb('applicable_taxes_json').default([]),

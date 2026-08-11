@@ -3,6 +3,7 @@ import {
   Client, 
   Task, 
   COMMON_TAX_TYPES, 
+  ENTITY_TYPES,
   TAX_REGISTRATION_TYPES, 
   COMMON_RDO_CODES, 
   COMMON_RETAINER_SERVICES 
@@ -62,7 +63,8 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
     tin: '',
     rdoCode: 'RDO 044 - Taguig / Pateros',
     secDtiNumber: '',
-    taxRegistrationType: 'Corporation',
+    entityType: 'Corporation',
+    taxRegistrationType: 'VAT Registered (12%)',
     applicableTaxes: [
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
@@ -142,7 +144,8 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       tin: '',
       rdoCode: 'RDO 044 - Taguig / Pateros',
       secDtiNumber: '',
-      taxRegistrationType: 'Corporation',
+      entityType: 'Corporation',
+      taxRegistrationType: 'VAT Registered (12%)',
       applicableTaxes: [
         'VAT (Form 2550Q)',
         'Compensation Withholding (Form 1601-C)',
@@ -358,6 +361,11 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-extrabold text-base text-slate-900 tracking-tight">{client.name}</h3>
+                      {client.entityType && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                          {client.entityType}
+                        </span>
+                      )}
                       {client.taxRegistrationType && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                           {client.taxRegistrationType}
@@ -557,7 +565,19 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Tax Registration Type</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Entity / Organization Structure</label>
+                    <select
+                      value={newClient.entityType}
+                      onChange={(e) => setNewClient({ ...newClient, entityType: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium"
+                    >
+                      {ENTITY_TYPES.map((type, i) => (
+                        <option key={i} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Tax Registration Type (BIR)</label>
                     <select
                       value={newClient.taxRegistrationType}
                       onChange={(e) => setNewClient({ ...newClient, taxRegistrationType: e.target.value })}
@@ -568,6 +588,9 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                       ))}
                     </select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Account Operational Status</label>
                     <select
@@ -580,7 +603,6 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                       <option value="At Risk">At Risk (Roadblocks / overdue risks)</option>
                     </select>
                   </div>
-                </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">BIR Revenue District Office (RDO) Code</label>
@@ -595,6 +617,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                   </select>
                 </div>
               </div>
+            </div>
 
               {/* SECTION 2: ACTIVE BIR TAX FILING TYPES (SPECIFICALLY REQUESTED) */}
               <div className="space-y-3 bg-teal-50/60 p-4 rounded-2xl border border-teal-200/80">

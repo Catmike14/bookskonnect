@@ -64,6 +64,7 @@ export async function ensureTablesExist() {
       contact_phone TEXT NOT NULL,
       notes TEXT NOT NULL,
       rdo_code TEXT,
+      entity_type TEXT,
       sec_dti_number TEXT,
       tax_registration_type TEXT,
       applicable_taxes_json JSONB DEFAULT '[]'::jsonb,
@@ -77,6 +78,9 @@ export async function ensureTablesExist() {
   `;
   await sql`
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS rdo_code TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS entity_type TEXT;
   `;
   await sql`
     ALTER TABLE clients ADD COLUMN IF NOT EXISTS sec_dti_number TEXT;
