@@ -63,8 +63,44 @@ export async function ensureTablesExist() {
       contact_email TEXT NOT NULL,
       contact_phone TEXT NOT NULL,
       notes TEXT NOT NULL,
+      rdo_code TEXT,
+      sec_dti_number TEXT,
+      tax_registration_type TEXT,
+      applicable_taxes_json JSONB DEFAULT '[]'::jsonb,
+      contact_person TEXT,
+      registered_address TEXT,
+      accounting_method TEXT,
+      fiscal_year_end TEXT,
+      subscribed_services_json JSONB DEFAULT '[]'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     );
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS rdo_code TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS sec_dti_number TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS tax_registration_type TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS applicable_taxes_json JSONB DEFAULT '[]'::jsonb;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_person TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS registered_address TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS accounting_method TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS fiscal_year_end TEXT;
+  `;
+  await sql`
+    ALTER TABLE clients ADD COLUMN IF NOT EXISTS subscribed_services_json JSONB DEFAULT '[]'::jsonb;
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS tasks (

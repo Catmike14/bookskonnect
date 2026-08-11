@@ -1,5 +1,12 @@
-import React, { useState } from 'react';
-import { Client, Task, TaskStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { 
+  Client, 
+  Task, 
+  COMMON_TAX_TYPES, 
+  TAX_REGISTRATION_TYPES, 
+  COMMON_RDO_CODES, 
+  COMMON_RETAINER_SERVICES 
+} from '../types';
 import { 
   X, 
   Building2, 
@@ -18,14 +25,19 @@ import {
   Check,
   Loader2,
   Calendar,
-  Trash2
+  Trash2,
+  Receipt,
+  Building,
+  User,
+  Shield,
+  MapPin
 } from 'lucide-react';
 
 interface ClientDetailModalProps {
   client: Client | null;
   tasks: Task[];
   onClose: () => void;
-  onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus']) => void;
+  onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus'], fullClientData?: Partial<Client>) => void;
   onSelectForBroadcast: (clientName: string) => void;
   onDeleteClient?: (clientId: number) => void;
 }
@@ -41,12 +53,75 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   if (!client) return null;
 
   const [activeTab, setActiveTab] = useState<'TASKS' | 'INFO' | 'EMAIL_GEN'>('TASKS');
-  const [notesText, setNotesText] = useState(client.notes || '');
-  const [healthStatus, setHealthStatus] = useState(client.healthStatus);
+
+  // Form state initialized from client props
+  const [formData, setFormData] = useState({
+    name: client.name,
+    industry: client.industry,
+    tin: client.tin,
+    rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
+    secDtiNumber: client.secDtiNumber || '',
+    taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
+    applicableTaxes: client.applicableTaxes || [
+      'VAT (Form 2550Q)',
+      'Compensation Withholding (Form 1601-C)',
+      'Expanded Withholding (Form 0619-E / 1601-EQ)',
+      'Corporate Income Tax (Form 1702-RT/EX)',
+      'Annual Registration Fee (Form 0605)'
+    ],
+    managerInCharge: client.managerInCharge,
+    healthStatus: client.healthStatus,
+    contactPerson: client.contactPerson || '',
+    contactEmail: client.contactEmail,
+    contactPhone: client.contactPhone,
+    registeredAddress: client.registeredAddress || '',
+    accountingMethod: client.accountingMethod || 'Accrual Basis',
+    fiscalYearEnd: client.fiscalYearEnd || 'Calendar Year (Dec 31)',
+    subscribedServices: client.subscribedServices || [
+      'Bookkeeping & General Ledger',
+      'BIR Tax Filing & Compliance'
+    ],
+    notes: client.notes || ''
+  });
+
   const [isSavedNotes, setIsSavedNotes] = useState(false);
 
+  // Sync state when client changes
+  useEffect(() => {
+    if (client) {
+      setFormData({
+        name: client.name,
+        industry: client.industry,
+        tin: client.tin,
+        rdoCode: client.rdoCode || 'RDO 044 - Taguig / Pateros',
+        secDtiNumber: client.secDtiNumber || '',
+        taxRegistrationType: client.taxRegistrationType || 'VAT Registered (12%)',
+        applicableTaxes: client.applicableTaxes || [
+          'VAT (Form 2550Q)',
+          'Compensation Withholding (Form 1601-C)',
+          'Expanded Withholding (Form 0619-E / 1601-EQ)',
+          'Corporate Income Tax (Form 1702-RT/EX)',
+          'Annual Registration Fee (Form 0605)'
+        ],
+        managerInCharge: client.managerInCharge,
+        healthStatus: client.healthStatus,
+        contactPerson: client.contactPerson || '',
+        contactEmail: client.contactEmail,
+        contactPhone: client.contactPhone,
+        registeredAddress: client.registeredAddress || '',
+        accountingMethod: client.accountingMethod || 'Accrual Basis',
+        fiscalYearEnd: client.fiscalYearEnd || 'Calendar Year (Dec 31)',
+        subscribedServices: client.subscribedServices || [
+          'Bookkeeping & General Ledger',
+          'BIR Tax Filing & Compliance'
+        ],
+        notes: client.notes || ''
+      });
+    }
+  }, [client]);
+
   // Email draft state
-  const [emailPurpose, setEmailPurpose] = useState('Missing BIR 2307 Certificates & Sales Journal');
+  const [emailPurpose, setEmailPurpose] = useState('Missing BIR 2307 Certificates & Monthly Sales Journal');
   const [isDraftingEmail, setIsDraftingEmail] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState('');
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -56,9 +131,29 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const flaggedTasks = clientTasks.filter(t => t.flagged);
   const openTasks = clientTasks.filter(t => t.status !== 'DONE');
 
-  const handleSaveNotes = (e: React.FormEvent) => {
+  const toggleApplicableTax = (taxName: string) => {
+    setFormData(prev => {
+      const exists = prev.applicableTaxes.includes(taxName);
+      const updated = exists 
+        ? prev.applicableTaxes.filter(t => t !== taxName)
+        : [...prev.applicableTaxes, taxName];
+      return { ...prev, applicableTaxes: updated };
+    });
+  };
+
+  const toggleSubscribedService = (serviceName: string) => {
+    setFormData(prev => {
+      const exists = prev.subscribedServices.includes(serviceName);
+      const updated = exists 
+        ? prev.subscribedServices.filter(s => s !== serviceName)
+        : [...prev.subscribedServices, serviceName];
+      return { ...prev, subscribedServices: updated };
+    });
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateClientNotes(client.id, notesText, healthStatus);
+    onUpdateClientNotes(client.id, formData.notes, formData.healthStatus, formData);
     setIsSavedNotes(true);
     setTimeout(() => setIsSavedNotes(false), 2000);
   };
@@ -76,7 +171,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           prompt: emailPurpose,
           context: {
             clientName: client.name,
-            contactEmail: client.contactEmail,
+            contactEmail: formData.contactEmail,
+            contactPerson: formData.contactPerson,
             category: 'Tax Compliance Document Request'
           }
         })
@@ -114,10 +210,10 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
         
         {/* Modal Header */}
-        <div className="p-5 md:p-6 bg-slate-900 text-white flex items-start justify-between gap-4">
+        <div className="p-5 md:p-6 bg-slate-900 text-white flex items-start justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3.5">
             <div className="p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl">
               <Building2 className="w-6 h-6" />
@@ -128,9 +224,16 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getHealthBadge(client.healthStatus)}`}>
                   {client.healthStatus}
                 </span>
+                {formData.taxRegistrationType && (
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-900/80 text-indigo-200 border border-indigo-700">
+                    {formData.taxRegistrationType}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
+              <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
                 <span>TIN: <strong className="text-slate-200 font-mono">{client.tin}</strong></span>
+                <span>•</span>
+                <span>{formData.rdoCode}</span>
                 <span>•</span>
                 <span>Industry: {client.industry}</span>
               </p>
@@ -140,9 +243,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {onDeleteClient && (
               <button
-                type="button"
                 onClick={() => {
-                  if (confirm(`Are you sure you want to permanently delete the client account "${client.name}"? This action cannot be undone.`)) {
+                  if (confirm(`Are you sure you want to delete client account "${client.name}"?`)) {
                     onDeleteClient(client.id);
                     onClose();
                   }
@@ -165,10 +267,10 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
         </div>
 
         {/* Client Stats Quick Bar */}
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-medium text-slate-600">
+        <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-medium text-slate-600 shrink-0">
           <div>
             <span className="text-[10px] uppercase font-semibold text-slate-400 block">Manager In Charge</span>
-            <strong className="text-slate-800">{client.managerInCharge}</strong>
+            <strong className="text-slate-800">{formData.managerInCharge}</strong>
           </div>
           <div>
             <span className="text-[10px] uppercase font-semibold text-slate-400 block">Open Filings</span>
@@ -181,13 +283,13 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             </strong>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-semibold text-slate-400 block">Contact Person</span>
-            <strong className="text-slate-800">{client.contactEmail}</strong>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block">Active Tax Forms</span>
+            <strong className="text-emerald-800 font-bold">{formData.applicableTaxes.length} BIR forms</strong>
           </div>
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="border-b border-slate-200 px-6 flex items-center gap-6 text-xs font-bold">
+        <div className="border-b border-slate-200 px-6 flex items-center gap-6 text-xs font-bold shrink-0">
           <button
             onClick={() => setActiveTab('TASKS')}
             className={`py-3.5 border-b-2 transition cursor-pointer flex items-center gap-2 ${
@@ -208,8 +310,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <FileText className="w-4 h-4" />
-            <span>Client Notes & Details</span>
+            <Receipt className="w-4 h-4 text-teal-600" />
+            <span>Tax Compliance & Profile</span>
           </button>
 
           <button
@@ -292,58 +394,217 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: CLIENT INFO & NOTES */}
+          {/* TAB 2: COMPREHENSIVE TAX PROFILE & EDITING */}
           {activeTab === 'INFO' && (
-            <form onSubmit={handleSaveNotes} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 text-xs">
-                <div>
-                  <label className="text-slate-400 uppercase font-semibold text-[10px] block mb-1">Email Address</label>
-                  <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{client.contactEmail}</span>
-                  </div>
+            <form onSubmit={handleSaveProfile} className="space-y-5 text-xs">
+              
+              {/* BIR Tax Types Checklist */}
+              <div className="bg-teal-50/70 p-4 rounded-2xl border border-teal-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-teal-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Receipt className="w-4 h-4 text-teal-700" />
+                    Active BIR Tax Filing Obligations
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-200/70 text-teal-900">
+                    {formData.applicableTaxes.length} Selected
+                  </span>
                 </div>
-                <div>
-                  <label className="text-slate-400 uppercase font-semibold text-[10px] block mb-1">Phone Contact</label>
-                  <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{client.contactPhone}</span>
-                  </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {COMMON_TAX_TYPES.map((taxName, idx) => {
+                    const isSelected = formData.applicableTaxes.includes(taxName);
+                    return (
+                      <label
+                        key={idx}
+                        onClick={() => toggleApplicableTax(taxName)}
+                        className={`flex items-center gap-2 p-2 rounded-xl border font-semibold cursor-pointer transition select-none ${
+                          isSelected
+                            ? 'bg-teal-700 text-white border-teal-800'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-teal-400'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                          isSelected ? 'bg-white text-teal-800 border-white' : 'border-slate-300'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className="truncate">{taxName}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Filing Health Status
-                </label>
-                <select
-                  value={healthStatus}
-                  onChange={(e) => setHealthStatus(e.target.value as Client['healthStatus'])}
-                  className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none font-semibold text-slate-800"
-                >
-                  <option value="Good">🟢 Good (All documents received & on-schedule)</option>
-                  <option value="Needs Documents">🟡 Needs Documents (Waiting on client receipts/vouchers)</option>
-                  <option value="At Risk">🔴 At Risk (Overdue deadlines or unhandled roadblocks)</option>
-                </select>
+              {/* Identity & RDO Registration */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-emerald-600" />
+                  Tax Registration & District Credentials
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Registered Company Name</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Industry Sector</label>
+                    <input
+                      type="text"
+                      value={formData.industry}
+                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">BIR TIN</label>
+                    <input
+                      type="text"
+                      value={formData.tin}
+                      onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">SEC / DTI Number</label>
+                    <input
+                      type="text"
+                      value={formData.secDtiNumber}
+                      onChange={(e) => setFormData({ ...formData, secDtiNumber: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Tax Reg Type</label>
+                    <select
+                      value={formData.taxRegistrationType}
+                      onChange={(e) => setFormData({ ...formData, taxRegistrationType: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-medium"
+                    >
+                      {TAX_REGISTRATION_TYPES.map((type, i) => (
+                        <option key={i} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-500 font-semibold mb-1 block">BIR Revenue District Office (RDO)</label>
+                  <select
+                    value={formData.rdoCode}
+                    onChange={(e) => setFormData({ ...formData, rdoCode: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-medium"
+                  >
+                    {COMMON_RDO_CODES.map((rdo, i) => (
+                      <option key={i} value={rdo}>{rdo}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Internal Engagement & Special Audit Notes
-                </label>
-                <textarea
-                  value={notesText}
-                  onChange={(e) => setNotesText(e.target.value)}
-                  placeholder="Record special BIR tax mapping rules, preferred contact person, accounting software credentials, or audit nuances..."
-                  className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-2xl h-32 outline-none focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
-                />
+              {/* Contact Information */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-emerald-600" />
+                  Contact & Registered Address
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Contact Person</label>
+                    <input
+                      type="text"
+                      value={formData.contactPerson}
+                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Contact Email</label>
+                    <input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-500 font-semibold mb-1 block">Registered Principal Address</label>
+                  <input
+                    type="text"
+                    value={formData.registeredAddress}
+                    onChange={(e) => setFormData({ ...formData, registeredAddress: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Status, Handler & CPA Notes */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-emerald-600" />
+                  Account Status & CPA Audit Notes
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Account Health Status</label>
+                    <select
+                      value={formData.healthStatus}
+                      onChange={(e) => setFormData({ ...formData, healthStatus: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-semibold"
+                    >
+                      <option value="Good">🟢 Good (All documents received & on-schedule)</option>
+                      <option value="Needs Documents">🟡 Needs Documents (Pending receipts/2307s)</option>
+                      <option value="At Risk">🔴 At Risk (Roadblocks or overdue risks)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-slate-500 font-semibold mb-1 block">Assigned CPA Handler</label>
+                    <input
+                      type="text"
+                      value={formData.managerInCharge}
+                      onChange={(e) => setFormData({ ...formData, managerInCharge: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-500 font-semibold mb-1 block">Internal Engagement & Tax Audit Notes</label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Record special BIR tax mapping rules, preferred contact person, accounting software credentials, or audit nuances..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl h-24 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
                 {isSavedNotes ? (
                   <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Client notes updated!</span>
+                    <span>Client profile & tax preferences updated!</span>
                   </span>
                 ) : (
                   <span />
@@ -351,9 +612,9 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
 
                 <button
                   type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer"
+                  className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition cursor-pointer shadow-sm"
                 >
-                  Save Notes & Health Status
+                  Save Tax Profile & Details
                 </button>
               </div>
             </form>
@@ -368,66 +629,70 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   <span>Gemini CPA Document & Reminder Draft Generator</span>
                 </div>
                 <p className="text-slate-600 leading-relaxed">
-                  Automatically draft formal emails to {client.name} requesting missing accounting records, BIR certificates, or tax payment confirmations.
+                  Generate professional BIR compliance emails formatted specifically for <strong>{client.name}</strong>.
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Request Purpose / Specific Missing Documents
+                  Email Request Subject / Purpose
                 </label>
                 <input
                   type="text"
                   value={emailPurpose}
                   onChange={(e) => setEmailPurpose(e.target.value)}
-                  placeholder="e.g. BIR 2307 Withholding Tax Certificates Q2, Sales Invoice Ledger, Bank Statement July 2026"
-                  className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium"
+                  placeholder="e.g. Request for Q3 BIR 2307 Certificates and Inventory List"
+                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
 
-              <button
-                onClick={handleGenerateAiEmail}
-                disabled={isDraftingEmail}
-                className="w-full bg-teal-800 hover:bg-teal-900 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isDraftingEmail ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Gemini is Drafting Formal Email...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>Draft Client Request Email</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={handleGenerateAiEmail}
+                  disabled={isDraftingEmail || !emailPurpose}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-xs"
+                >
+                  {isDraftingEmail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Drafting with Gemini...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Generate Draft Email</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               {generatedEmail && (
-                <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-3 relative border border-slate-800">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="font-mono text-[10px] text-slate-400">TO: {client.contactEmail}</span>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Generated Email Draft
+                    </span>
                     <button
                       onClick={handleCopyEmail}
-                      className="bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-200 transition cursor-pointer flex items-center gap-1.5"
                     >
                       {copiedEmail ? (
                         <>
-                          <Check className="w-3 h-3 text-emerald-400" />
+                          <Check className="w-3.5 h-3.5" />
                           <span>Copied!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy Draft</span>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy to Clipboard</span>
                         </>
                       )}
                     </button>
                   </div>
 
-                  <div className="whitespace-pre-line leading-relaxed font-sans text-slate-200">
+                  <pre className="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto max-h-72 border border-slate-800">
                     {generatedEmail}
-                  </div>
+                  </pre>
                 </div>
               )}
             </div>

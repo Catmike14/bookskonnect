@@ -208,7 +208,16 @@ app.get("/api/bootstrap", async (_req, res) => {
           healthStatus: c.healthStatus,
           contactEmail: c.contactEmail,
           contactPhone: c.contactPhone,
-          notes: c.notes
+          notes: c.notes,
+          rdoCode: c.rdoCode,
+          secDtiNumber: c.secDtiNumber,
+          taxRegistrationType: c.taxRegistrationType,
+          applicableTaxesJson: c.applicableTaxes || [],
+          contactPerson: c.contactPerson,
+          registeredAddress: c.registeredAddress,
+          accountingMethod: c.accountingMethod,
+          fiscalYearEnd: c.fiscalYearEnd,
+          subscribedServicesJson: c.subscribedServices || [],
         }).onConflictDoNothing();
       }
       dbClients = await db.select().from(clients);
@@ -278,11 +287,33 @@ app.get("/api/bootstrap", async (_req, res) => {
       updatedAt: t.updatedAt
     }));
 
+    const formattedClients = dbClients.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      industry: c.industry,
+      tin: c.tin,
+      activeEngagementsCount: c.activeEngagementsCount,
+      managerInCharge: c.managerInCharge,
+      healthStatus: c.healthStatus,
+      contactEmail: c.contactEmail,
+      contactPhone: c.contactPhone,
+      notes: c.notes,
+      rdoCode: c.rdoCode,
+      secDtiNumber: c.secDtiNumber,
+      taxRegistrationType: c.taxRegistrationType,
+      applicableTaxes: c.applicableTaxesJson || [],
+      contactPerson: c.contactPerson,
+      registeredAddress: c.registeredAddress,
+      accountingMethod: c.accountingMethod,
+      fiscalYearEnd: c.fiscalYearEnd,
+      subscribedServices: c.subscribedServicesJson || [],
+    }));
+
     res.json({
       success: true,
       dbConnected: true,
       users: dbUsers,
-      clients: dbClients,
+      clients: formattedClients,
       tasks: formattedTasks,
       deadlines: dbDeadlines
     });
@@ -397,15 +428,30 @@ app.post("/api/clients", async (req, res) => {
       healthStatus: c.healthStatus,
       contactEmail: c.contactEmail,
       contactPhone: c.contactPhone,
-      notes: c.notes || ''
+      notes: c.notes || '',
+      rdoCode: c.rdoCode || '',
+      secDtiNumber: c.secDtiNumber || '',
+      taxRegistrationType: c.taxRegistrationType || '',
+      applicableTaxesJson: c.applicableTaxes || [],
+      contactPerson: c.contactPerson || '',
+      registeredAddress: c.registeredAddress || '',
+      accountingMethod: c.accountingMethod || '',
+      fiscalYearEnd: c.fiscalYearEnd || '',
+      subscribedServicesJson: c.subscribedServices || [],
     }).returning();
-    res.json({ success: true, client: inserted });
+
+    const formatted = {
+      ...inserted,
+      applicableTaxes: inserted.applicableTaxesJson || [],
+      subscribedServices: inserted.subscribedServicesJson || []
+    };
+    res.json({ success: true, client: formatted });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Update Client Notes/Health
+// Update Client Info/Notes/Health
 app.put("/api/clients/:id", async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
   try {
@@ -413,10 +459,25 @@ app.put("/api/clients/:id", async (req, res) => {
     const { clients } = await import("./src/db/schema");
     const { eq } = await import("drizzle-orm");
     const db = getDb();
-    const { notes, healthStatus } = req.body;
+    const c = req.body;
     await db.update(clients).set({
-      ...(notes !== undefined ? { notes } : {}),
-      ...(healthStatus ? { healthStatus } : {})
+      ...(c.notes !== undefined ? { notes: c.notes } : {}),
+      ...(c.healthStatus ? { healthStatus: c.healthStatus } : {}),
+      ...(c.name ? { name: c.name } : {}),
+      ...(c.industry ? { industry: c.industry } : {}),
+      ...(c.tin ? { tin: c.tin } : {}),
+      ...(c.contactEmail !== undefined ? { contactEmail: c.contactEmail } : {}),
+      ...(c.contactPhone !== undefined ? { contactPhone: c.contactPhone } : {}),
+      ...(c.managerInCharge !== undefined ? { managerInCharge: c.managerInCharge } : {}),
+      ...(c.rdoCode !== undefined ? { rdoCode: c.rdoCode } : {}),
+      ...(c.secDtiNumber !== undefined ? { secDtiNumber: c.secDtiNumber } : {}),
+      ...(c.taxRegistrationType !== undefined ? { taxRegistrationType: c.taxRegistrationType } : {}),
+      ...(c.applicableTaxes !== undefined ? { applicableTaxesJson: c.applicableTaxes } : {}),
+      ...(c.contactPerson !== undefined ? { contactPerson: c.contactPerson } : {}),
+      ...(c.registeredAddress !== undefined ? { registeredAddress: c.registeredAddress } : {}),
+      ...(c.accountingMethod !== undefined ? { accountingMethod: c.accountingMethod } : {}),
+      ...(c.fiscalYearEnd !== undefined ? { fiscalYearEnd: c.fiscalYearEnd } : {}),
+      ...(c.subscribedServices !== undefined ? { subscribedServicesJson: c.subscribedServices } : {}),
     }).where(eq(clients.id, Number(req.params.id)));
     res.json({ success: true });
   } catch (err: any) {

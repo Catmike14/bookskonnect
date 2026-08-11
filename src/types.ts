@@ -91,7 +91,68 @@ export interface Client {
   contactEmail: string;
   contactPhone: string;
   notes: string;
+  // Extended Tax & Client Corporate Profile Fields
+  rdoCode?: string;
+  secDtiNumber?: string;
+  taxRegistrationType?: string;
+  applicableTaxes?: string[];
+  contactPerson?: string;
+  registeredAddress?: string;
+  accountingMethod?: string;
+  fiscalYearEnd?: string;
+  subscribedServices?: string[];
 }
+
+export const COMMON_TAX_TYPES = [
+  'VAT (Form 2550Q)',
+  'Percentage Tax (Form 2551Q)',
+  'Compensation Withholding (Form 1601-C)',
+  'Expanded Withholding (Form 0619-E / 1601-EQ)',
+  'Final Withholding Tax (Form 1601-FQ)',
+  'Corporate Income Tax (Form 1702-RT/EX)',
+  'Individual Income Tax (Form 1701)',
+  'Annual Registration Fee (Form 0605)',
+  'Local Business Tax (LGU Permits)',
+  'SSS / PhilHealth / Pag-IBIG Contributions'
+];
+
+export const TAX_REGISTRATION_TYPES = [
+  'VAT Registered (12%)',
+  'Non-VAT / Percentage Tax (3%)',
+  'Tax Exempt Entity',
+  'PEZA / BOI Incentivized (5% GIT)',
+  'Zero-Rated Exporter',
+  'Sole Proprietorship (8% Flat Rate)',
+  'General Professional Partnership (GPP)'
+];
+
+export const COMMON_RDO_CODES = [
+  'RDO 044 - Taguig / Pateros',
+  'RDO 050 - South Makati',
+  'RDO 047 - East Pasig',
+  'RDO 039 - South Quezon City',
+  'RDO 038 - North Quezon City',
+  'RDO 043 - Pasay City',
+  'RDO 051 - Pasig City',
+  'RDO 053B - Muntinlupa City',
+  'RDO 028 - Baguio City',
+  'RDO 080 - Mandaue City, Cebu',
+  'RDO 113 - West Davao City',
+  'RDO 126 - Large Taxpayers District Office (LTDO)'
+];
+
+export const COMMON_RETAINER_SERVICES = [
+  'Bookkeeping & General Ledger',
+  'BIR Tax Filing & Compliance',
+  'Payroll Processing & Slips',
+  'Audited Financial Statements (AFS)',
+  'Expanded Withholding Tax Filings',
+  'Annual Income Tax Preparation',
+  'Government Benefits (SSS/HDMF/PhilHealth)',
+  'SEC Annual Reportorial Filings',
+  'Business Permit & LGU Renewal',
+  'CPA Tax Audit Representation'
+];
 
 export interface TaxDeadline {
   id: number;

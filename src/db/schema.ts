@@ -21,6 +21,15 @@ export const clients = pgTable('clients', {
   contactEmail: text('contact_email').notNull(),
   contactPhone: text('contact_phone').notNull(),
   notes: text('notes').notNull(),
+  rdoCode: text('rdo_code'),
+  secDtiNumber: text('sec_dti_number'),
+  taxRegistrationType: text('tax_registration_type'),
+  applicableTaxesJson: jsonb('applicable_taxes_json').default([]),
+  contactPerson: text('contact_person'),
+  registeredAddress: text('registered_address'),
+  accountingMethod: text('accounting_method'),
+  fiscalYearEnd: text('fiscal_year_end'),
+  subscribedServicesJson: jsonb('subscribed_services_json').default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

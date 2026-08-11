@@ -43,18 +43,31 @@ export function exportTasksToCsv(tasks: Task[]): string {
  * Converts client directory list into a formatted CSV string
  */
 export function exportClientsToCsv(clients: Client[]): string {
-  const headers = ['Client ID', 'Company Name', 'TIN', 'Industry', 'Health Status', 'Active Engagements', 'Manager In Charge', 'Contact Email', 'Contact Phone', 'Notes'];
+  const headers = [
+    'Client ID', 'Company Name', 'TIN', 'Tax Reg Type', 'RDO Code', 'SEC/DTI No', 
+    'Industry', 'Health Status', 'Applicable Filing Taxes', 'Subscribed Services', 
+    'Contact Person', 'Contact Email', 'Contact Phone', 'Manager In Charge', 
+    'Accounting Method', 'Fiscal Year End', 'Registered Address', 'Notes'
+  ];
 
   const rows = clients.map(c => [
     c.id,
     `"${(c.name || '').replace(/"/g, '""')}"`,
     `"${(c.tin || '').replace(/"/g, '""')}"`,
+    `"${(c.taxRegistrationType || '').replace(/"/g, '""')}"`,
+    `"${(c.rdoCode || '').replace(/"/g, '""')}"`,
+    `"${(c.secDtiNumber || '').replace(/"/g, '""')}"`,
     `"${(c.industry || '').replace(/"/g, '""')}"`,
     c.healthStatus,
-    c.activeEngagementsCount,
-    `"${(c.managerInCharge || '').replace(/"/g, '""')}"`,
+    `"${(c.applicableTaxes ? c.applicableTaxes.join('; ') : '').replace(/"/g, '""')}"`,
+    `"${(c.subscribedServices ? c.subscribedServices.join('; ') : '').replace(/"/g, '""')}"`,
+    `"${(c.contactPerson || '').replace(/"/g, '""')}"`,
     `"${(c.contactEmail || '').replace(/"/g, '""')}"`,
     `"${(c.contactPhone || '').replace(/"/g, '""')}"`,
+    `"${(c.managerInCharge || '').replace(/"/g, '""')}"`,
+    `"${(c.accountingMethod || '').replace(/"/g, '""')}"`,
+    `"${(c.fiscalYearEnd || '').replace(/"/g, '""')}"`,
+    `"${(c.registeredAddress || '').replace(/"/g, '""')}"`,
     `"${(c.notes || '').replace(/"/g, '""')}"`
   ]);
 

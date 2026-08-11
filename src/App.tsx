@@ -420,13 +420,14 @@ export default function App() {
     }).catch(() => {});
   };
 
-  const handleUpdateClientNotes = (clientId: number, newNotes: string, newHealth?: Client['healthStatus']) => {
+  const handleUpdateClientNotes = (clientId: number, newNotes: string, newHealth?: Client['healthStatus'], fullClientData?: Partial<Client>) => {
     setClients(prev => prev.map(c => {
       if (c.id === clientId) {
         return {
           ...c,
           notes: newNotes,
-          healthStatus: newHealth || c.healthStatus
+          healthStatus: newHealth || c.healthStatus,
+          ...(fullClientData || {})
         };
       }
       return c;
@@ -434,7 +435,7 @@ export default function App() {
     fetch(`/api/clients/${clientId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: newNotes, healthStatus: newHealth })
+      body: JSON.stringify({ notes: newNotes, healthStatus: newHealth, ...(fullClientData || {}) })
     }).catch(() => {});
   };
 
