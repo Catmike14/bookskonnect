@@ -101,10 +101,6 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
     e.target.value = '';
   };
 
-  const handleAddSampleAttachment = (sampleName: string, size: string) => {
-    setAttachments(prev => [...prev, { name: sampleName, url: '#', size }]);
-  };
-
   const handleRemoveAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
@@ -457,24 +453,6 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
                 className="hidden"
               />
             </label>
-          </div>
-
-          {/* Quick Preset File Buttons */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-2">
-            <button
-              type="button"
-              onClick={() => handleAddSampleAttachment('VAT_Form_2550Q_Reconciliation.xlsx', '142.5 KB')}
-              className="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-lg transition cursor-pointer"
-            >
-              + Add VAT Reconciliation (.xlsx)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddSampleAttachment('BIR_2307_Certificate.pdf', '88.0 KB')}
-              className="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-lg transition cursor-pointer"
-            >
-              + Add BIR 2307 (.pdf)
-            </button>
           </div>
 
           {/* Attached Files List */}
