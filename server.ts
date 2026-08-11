@@ -9,7 +9,54 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json());
+// Security: Disable X-Powered-By header
+app.disable("x-powered-by");
+
+// Security: HTTP Security Headers Middleware
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+
+// Performance & Security: Restrict JSON payload size
+app.use(express.json({ limit: "500kb" }));
+
+// Rate Limiter Store (In-Memory for performance)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function createRateLimiter(maxRequests: number, windowMs: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    const record = rateLimitMap.get(ip);
+
+    if (!record || now > record.resetTime) {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+
+    if (record.count >= maxRequests) {
+      return res.status(429).json({
+        success: false,
+        error: "Too many requests. Please slow down and try again shortly.",
+      });
+    }
+
+    record.count++;
+    next();
+  };
+}
+
+// Rate limit API endpoints: 120 reqs/minute overall, 20 reqs/minute for AI
+const generalApiLimiter = createRateLimiter(120, 60 * 1000);
+const aiApiLimiter = createRateLimiter(20, 60 * 1000);
+
+app.use("/api", generalApiLimiter);
+app.use("/api/gemini", aiApiLimiter);
 
 // Initialize Gemini Client server-side
 let aiClient: GoogleGenAI | null = null;
@@ -142,7 +189,8 @@ app.get("/api/bootstrap", async (_req, res) => {
           name: u.name,
           role: u.role,
           avatar: u.avatar,
-          email: u.email
+          email: u.email,
+          status: 'APPROVED'
         }).onConflictDoNothing();
       }
       dbUsers = await db.select().from(users);
@@ -391,6 +439,61 @@ app.delete("/api/clients/:id", async (req, res) => {
   }
 });
 
+// Create / Register User
+app.post("/api/users", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { users } = await import("./src/db/schema");
+    const db = getDb();
+    const u = req.body;
+    // Sanitize role: public self-registrations cannot claim System Administrator directly
+    const requestedRole = u.role === 'System Administrator' ? 'Bookkeeper' : (u.role || 'Bookkeeper');
+    const [inserted] = await db.insert(users).values({
+      name: u.name,
+      email: u.email,
+      role: requestedRole,
+      avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name || u.email)}`,
+      status: 'PENDING'
+    }).returning();
+    res.json({ success: true, user: inserted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update User Role
+app.put("/api/users/:id/role", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { users } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const { role } = req.body;
+    await db.update(users).set({ role }).where(eq(users.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update User Status (Approval / Rejection)
+app.put("/api/users/:id/status", async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { users } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const { status } = req.body;
+    await db.update(users).set({ status }).where(eq(users.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Delete User
 app.delete("/api/users/:id", async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ success: true, dbConnected: false });
@@ -433,7 +536,17 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: "1d",
+      etag: true,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        }
+      }
+    }));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

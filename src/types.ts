@@ -1,11 +1,15 @@
 export type Role = 'System Administrator' | 'Manager' | 'Senior CPA' | 'Staff Auditor' | 'Tax Specialist' | 'Bookkeeper';
 
+export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface User {
   id: number;
   name: string;
   role: Role;
   avatar: string;
   email: string;
+  status?: UserStatus;
+  createdAt?: string;
 }
 
 export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING_REVIEW' | 'DONE';

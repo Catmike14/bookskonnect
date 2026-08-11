@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Task, Client, Role, TaskStatus } from '../types';
+import { User, Task, Client, Role, TaskStatus, UserStatus } from '../types';
 import { 
   ShieldCheck, 
   Users, 
@@ -22,13 +22,17 @@ import {
   Lock,
   Layers,
   Sparkles,
-  Shield
+  Shield,
+  UserCheck,
+  UserX,
+  Clock
 } from 'lucide-react';
 
 interface AdminPanelProps {
   currentUser: User;
   allUsers: User[];
   onUpdateUserRole: (userId: number, newRole: Role) => void;
+  onUpdateUserStatus?: (userId: number, newStatus: UserStatus) => void;
   onDeleteUser: (userId: number) => void;
   onAddUser: (user: User) => void;
   tasks: Task[];
@@ -43,6 +47,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   currentUser,
   allUsers,
   onUpdateUserRole,
+  onUpdateUserStatus,
   onDeleteUser,
   onAddUser,
   tasks,
@@ -64,6 +69,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // User Search & Filter
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // New User Form Modal State
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -78,11 +84,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Backup / Restore File Input
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const pendingUsersCount = allUsers.filter(u => (u.status || 'APPROVED') === 'PENDING').length;
+
   const filteredUsers = allUsers.filter(u => {
     const matchesSearch = u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
                           u.email.toLowerCase().includes(userSearch.toLowerCase());
     const matchesRole = roleFilter === 'ALL' || u.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const userStatus = u.status || 'APPROVED';
+    const matchesStatus = statusFilter === 'ALL' || userStatus === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
   });
 
   const filteredTasks = tasks.filter(t => 
@@ -110,6 +120,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       name: newName.trim(),
       email: newEmail.trim(),
       role: newRole,
+      status: 'APPROVED',
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newName)}`
     };
 
@@ -281,6 +292,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* TAB 1: USERS & ROLES MANAGEMENT */}
       {activeTab === 'USERS' && (
         <div className="space-y-4">
+
+          {/* Pending Approval Alert Banner */}
+          {pendingUsersCount > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/20 text-amber-700 rounded-xl">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    Pending Account Approvals Required
+                    <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-extrabold">
+                      {pendingUsersCount}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    {pendingUsersCount} new user registration request(s) are awaiting admin verification.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setStatusFilter('PENDING')}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer"
+                >
+                  Filter Pending Users
+                </button>
+                {onUpdateUserStatus && (
+                  <button
+                    onClick={() => {
+                      allUsers
+                        .filter(u => (u.status || 'APPROVED') === 'PENDING')
+                        .forEach(u => onUpdateUserStatus(u.id, 'APPROVED'));
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    Approve All
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
             
             {/* Search */}
@@ -295,8 +351,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
 
-            {/* Role Filter & Add Button */}
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {/* Role & Status Filters & Add Button */}
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="PENDING">Pending Approval</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
@@ -330,6 +397,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="py-3 px-4">User Details</th>
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Role & Authority</th>
+                    <th className="py-3 px-4">Account Status</th>
                     <th className="py-3 px-4">Change Role</th>
                     <th className="py-3 px-4 text-right">Admin Actions</th>
                   </tr>
@@ -338,6 +406,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {filteredUsers.map((u) => {
                     const isAdmin = u.role === 'System Administrator';
                     const isSelf = u.id === currentUser.id;
+                    const uStatus = u.status || 'APPROVED';
 
                     return (
                       <tr key={u.id} className="hover:bg-slate-50/80 transition">
@@ -385,6 +454,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </td>
 
                         <td className="py-3 px-4">
+                          {uStatus === 'APPROVED' ? (
+                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              Active
+                            </span>
+                          ) : uStatus === 'PENDING' ? (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 px-2.5 py-1 rounded-lg text-[11px] font-bold animate-pulse">
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              Pending Approval
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+                              <UserX className="w-3.5 h-3.5 text-red-600" />
+                              Rejected
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4">
                           <select
                             value={u.role}
                             onChange={(e) => onUpdateUserRole(u.id, e.target.value as Role)}
@@ -403,17 +491,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {isSelf ? (
                             <span className="text-[10px] font-bold text-slate-400 italic">Protected Self</span>
                           ) : (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove account "${u.name}"?`)) {
-                                  onDeleteUser(u.id);
-                                }
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                              title="Delete User"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {onUpdateUserStatus && uStatus === 'PENDING' && (
+                                <>
+                                  <button
+                                    onClick={() => onUpdateUserStatus(u.id, 'APPROVED')}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                                    title="Approve User"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => onUpdateUserStatus(u.id, 'REJECTED')}
+                                    className="px-2 py-1 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 border border-slate-200 hover:border-red-200 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                                    title="Reject User"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+
+                              {onUpdateUserStatus && uStatus === 'APPROVED' && (
+                                <button
+                                  onClick={() => onUpdateUserStatus(u.id, 'PENDING')}
+                                  className="px-2 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition cursor-pointer"
+                                  title="Revoke Approval"
+                                >
+                                  Hold
+                                </button>
+                              )}
+
+                              {onUpdateUserStatus && uStatus === 'REJECTED' && (
+                                <button
+                                  onClick={() => onUpdateUserStatus(u.id, 'APPROVED')}
+                                  className="px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold rounded-lg hover:bg-emerald-100 transition cursor-pointer"
+                                  title="Re-Approve User"
+                                >
+                                  Approve
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to remove account "${u.name}"?`)) {
+                                    onDeleteUser(u.id);
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                title="Delete User"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>

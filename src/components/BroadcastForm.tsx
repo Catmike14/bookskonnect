@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, TaxCategory, Priority, Task } from '../types';
-import { TEAM_USERS, INITIAL_CLIENTS } from '../data/initialData';
+import { INITIAL_CLIENTS } from '../data/initialData';
 import { 
   Send, 
   Sparkles, 
@@ -21,6 +21,7 @@ import {
 
 interface BroadcastFormProps {
   currentUser: User;
+  allUsers?: User[];
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => void;
 }
 
@@ -37,13 +38,14 @@ const TAX_CATEGORIES: TaxCategory[] = [
   'General Advisory'
 ];
 
-export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, onAddTask }) => {
+export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask }) => {
+  const userList = allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []);
   const [clientName, setClientName] = useState('');
   const [customClient, setCustomClient] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<TaxCategory>('VAT 2550Q');
   const [priority, setPriority] = useState<Priority>('NORMAL');
-  const [assigneeId, setAssigneeId] = useState<number>(TEAM_USERS[0].id);
+  const [assigneeId, setAssigneeId] = useState<number>(currentUser?.id || (userList[0]?.id ?? 0));
   const [dueDate, setDueDate] = useState<string>('');
   const [description, setDescription] = useState('');
   const [isFlagged, setIsFlagged] = useState(false);
@@ -79,7 +81,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, onAdd
     e.preventDefault();
     if (!finalClientName || !title) return;
 
-    const selectedAssignee = TEAM_USERS.find(u => u.id === Number(assigneeId)) || currentUser;
+    const selectedAssignee = userList.find(u => u.id === Number(assigneeId)) || currentUser;
 
     onAddTask({
       clientName: finalClientName,
@@ -295,7 +297,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, onAdd
               onChange={(e) => setAssigneeId(Number(e.target.value))}
               className="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition font-medium"
             >
-              {TEAM_USERS.map(u => (
+              {userList.map(u => (
                 <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
               ))}
             </select>

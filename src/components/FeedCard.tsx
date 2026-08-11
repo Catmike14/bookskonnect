@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Task, TaskStatus, User } from '../types';
-import { TEAM_USERS } from '../data/initialData';
 import { 
   Clock, 
   Flag, 

@@ -44,8 +44,12 @@ export async function ensureTablesExist() {
       role TEXT NOT NULL,
       avatar TEXT NOT NULL,
       email TEXT NOT NULL,
+      status TEXT DEFAULT 'APPROVED' NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     );
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'APPROVED';
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS clients (

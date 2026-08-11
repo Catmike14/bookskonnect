@@ -151,14 +151,14 @@ export const Header: React.FC<HeaderProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 activeTab === 'ADMIN'
                   ? 'bg-indigo-600 text-white shadow-xs'
-                  : currentUser.role === 'System Administrator'
+                  : currentUser?.role === 'System Administrator'
                   ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Admin Control</span>
-              {currentUser.role === 'System Administrator' && (
+              {currentUser?.role === 'System Administrator' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               )}
             </button>
@@ -254,13 +254,13 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 p-1.5 pl-3 rounded-xl border border-slate-200 transition cursor-pointer"
             >
               <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
+                src={currentUser?.avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=User'}
+                alt={currentUser?.name || 'User'}
                 className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-xs"
               />
               <div className="text-left hidden lg:block pr-1">
-                <div className="text-xs font-bold text-slate-800 leading-tight">{currentUser.name}</div>
-                <div className="text-[10px] text-slate-500 font-semibold">{currentUser.role}</div>
+                <div className="text-xs font-bold text-slate-800 leading-tight">{currentUser?.name || 'User'}</div>
+                <div className="text-[10px] text-slate-500 font-semibold">{currentUser?.role || ''}</div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
@@ -273,10 +273,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Current Active Session</div>
                   <div className="flex items-center gap-2">
-                    <img src={currentUser.avatar} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                    <img src={currentUser?.avatar || 'https://api.dicebear.com/7.x/initials/svg?seed=User'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full object-cover" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-slate-800 truncate">{currentUser.name}</div>
-                      <div className="text-[10px] text-slate-500 font-semibold">{currentUser.role}</div>
+                      <div className="text-xs font-bold text-slate-800 truncate">{currentUser?.name || 'User'}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold">{currentUser?.role || ''}</div>
                     </div>
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800">
                       Active
@@ -323,7 +323,7 @@ export const Header: React.FC<HeaderProps> = ({
                         setShowUserDropdown(false);
                       }}
                       className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left text-xs transition cursor-pointer ${
-                        currentUser.id === user.id ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                        currentUser?.id === user.id ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
                       }`}
                     >
                       <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
@@ -331,7 +331,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="font-semibold truncate">{user.name}</div>
                         <div className="text-[10px] text-slate-500 truncate">{user.role}</div>
                       </div>
-                      {currentUser.id === user.id && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                      {currentUser?.id === user.id && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                     </button>
                   ))}
                 </div>

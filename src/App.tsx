@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Task, TaskStatus, Client, TaxDeadline, Role } from './types';
-import { TEAM_USERS, INITIAL_CLIENTS, INITIAL_DEADLINES, INITIAL_TASKS } from './data/initialData';
+import { INITIAL_CLIENTS, INITIAL_DEADLINES, INITIAL_TASKS } from './data/initialData';
 import { Header } from './components/Header';
 import { TaxDeadlineTicker } from './components/TaxDeadlineTicker';
 import { BroadcastForm } from './components/BroadcastForm';
@@ -78,7 +78,7 @@ export default function App() {
           const data = await res.json();
           if (isMounted && data.success && data.dbConnected) {
             setDbConnected(true);
-            setAllUsers(data.users && data.users.length ? data.users : TEAM_USERS);
+            setAllUsers(data.users || []);
             setClients(data.clients || []);
             setTasks(data.tasks || []);
           }
@@ -102,6 +102,28 @@ export default function App() {
     if (currentUser && currentUser.id === userId) {
       setCurrentUser(prev => prev ? ({ ...prev, role: newRole }) : null);
     }
+    fetch(`/api/users/${userId}/role`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole })
+    }).catch(() => {});
+  };
+
+  const handleUpdateUserStatus = (userId: number, newStatus: import('./types').UserStatus) => {
+    setAllUsers(prev => prev.map(u => {
+      if (u.id === userId) {
+        return { ...u, status: newStatus };
+      }
+      return u;
+    }));
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser(prev => prev ? ({ ...prev, status: newStatus }) : null);
+    }
+    fetch(`/api/users/${userId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    }).catch(() => {});
   };
 
   const handleDeleteUser = (userId: number) => {
@@ -127,12 +149,22 @@ export default function App() {
   }, [allUsers]);
 
   const handleRegisterUser = (newUser: User) => {
+    const userToSave: User = {
+      ...newUser,
+      role: newUser.role || 'Bookkeeper',
+      status: newUser.status || 'PENDING'
+    };
     setAllUsers(prev => {
-      if (prev.some(u => u.id === newUser.id || u.email.toLowerCase() === newUser.email.toLowerCase())) {
+      if (prev.some(u => u.id === userToSave.id || u.email.toLowerCase() === userToSave.email.toLowerCase())) {
         return prev;
       }
-      return [...prev, newUser];
+      return [...prev, userToSave];
     });
+    fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userToSave)
+    }).catch(() => {});
   };
 
   const handleLoginSuccess = (user: User) => {
@@ -404,7 +436,7 @@ export default function App() {
       localStorage.removeItem('bk_users');
       setTasks([]);
       setClients([]);
-      setAllUsers(TEAM_USERS);
+      setAllUsers([]);
       fetch('/api/reset', { method: 'POST' }).catch(() => {});
     }
   };
@@ -531,6 +563,18 @@ export default function App() {
         dbConnected={dbConnected}
       />
 
+      {/* Pending Account Banner */}
+      {currentUser?.status === 'PENDING' && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs text-amber-900 bg-amber-50/90 backdrop-blur-xs flex items-center justify-between gap-3">
+          <div className="max-w-7xl mx-auto flex items-center gap-2.5 font-medium">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Account Pending Administrator Approval:</strong> Your account is registered as <em>{currentUser.role}</em> and is awaiting verification by a System Administrator. An admin can approve your access in the Admin Hub.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8">
         
@@ -542,6 +586,7 @@ export default function App() {
             <div className="lg:col-span-5">
               <BroadcastForm
                 currentUser={currentUser}
+                allUsers={allUsers}
                 onAddTask={handleAddTask}
               />
             </div>
@@ -682,6 +727,7 @@ export default function App() {
             currentUser={currentUser}
             allUsers={allUsers}
             onUpdateUserRole={handleUpdateUserRole}
+            onUpdateUserStatus={handleUpdateUserStatus}
             onDeleteUser={handleDeleteUser}
             onAddUser={handleRegisterUser}
             tasks={tasks}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { User, Task } from '../types';
-import { TEAM_USERS } from '../data/initialData';
 import { 
   Users, 
   UserCheck, 
@@ -30,7 +29,7 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
   tasks,
   onSelectUserForBroadcast,
   onFilterByAssignee,
-  users = TEAM_USERS,
+  users = [],
   onDeleteUser,
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);

@@ -44,10 +44,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   // Sign up state
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupRole, setSignupRole] = useState<Role>('Senior CPA');
+  const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
+  const [registrationNotice, setRegistrationNotice] = useState('');
 
   // Handlers
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -68,7 +69,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       id: Date.now(),
       name: email.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()),
       email: email.trim(),
-      role: 'Senior CPA' as Role,
+      role: 'Bookkeeper' as Role,
+      status: 'PENDING' as const,
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`
     };
 
@@ -113,7 +115,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       id: Date.now(),
       name: signupName.trim(),
       email: signupEmail.trim(),
-      role: signupRole,
+      role: signupRole || 'Bookkeeper',
+      status: 'PENDING',
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(signupName)}`
     };
 
@@ -437,11 +440,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       onChange={(e) => setSignupRole(e.target.value as Role)}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors"
                     >
-                      <option value="Senior CPA">Senior CPA</option>
-                      <option value="Manager">Manager</option>
+                      <option value="Bookkeeper">Bookkeeper</option>
                       <option value="Staff Auditor">Staff Auditor</option>
                       <option value="Tax Specialist">Tax Specialist</option>
-                      <option value="System Administrator">System Administrator</option>
+                      <option value="Senior CPA">Senior CPA</option>
+                      <option value="Manager">Manager</option>
                     </select>
                   </div>
 

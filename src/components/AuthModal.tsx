@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { TEAM_USERS } from '../data/initialData';
 import { 
   X, 
   Lock, 
@@ -52,7 +51,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Signup form state
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupRole, setSignupRole] = useState<Role>('Senior CPA');
+  const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
   const [signupFirm, setSignupFirm] = useState('Bookskonnect Advisory');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
@@ -72,15 +71,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const normalizedEmail = loginEmail.trim().toLowerCase();
     const matchedUser = allUsers.find(
       (u) => u.email.toLowerCase() === normalizedEmail
-    ) || TEAM_USERS.find(
-      (u) => u.email.toLowerCase() === normalizedEmail
     );
 
     const userToAuth = matchedUser || {
       id: Date.now(),
       name: loginEmail.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()),
       email: loginEmail.trim(),
-      role: 'Senior CPA' as Role,
+      role: 'Bookkeeper' as Role,
+      status: 'PENDING' as const,
       avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(loginEmail)}`
     };
 
@@ -162,7 +160,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       id: Date.now(),
       name: signupName.trim(),
       email: signupEmail.trim(),
-      role: signupRole,
+      role: signupRole || 'Bookkeeper',
+      status: 'PENDING',
       avatar: avatarUrl
     };
 
@@ -487,12 +486,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onChange={(e) => setSignupRole(e.target.value as Role)}
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 appearance-none cursor-pointer"
                     >
-                      <option value="System Administrator">System Administrator (Full Control)</option>
-                      <option value="Manager">Manager / Partner</option>
-                      <option value="Senior CPA">Senior CPA</option>
+                      <option value="Bookkeeper">Bookkeeper</option>
                       <option value="Staff Auditor">Staff Auditor</option>
                       <option value="Tax Specialist">Tax Specialist</option>
-                      <option value="Bookkeeper">Bookkeeper</option>
+                      <option value="Senior CPA">Senior CPA</option>
+                      <option value="Manager">Manager / Partner</option>
                     </select>
                   </div>
                 </div>
