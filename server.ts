@@ -107,7 +107,7 @@ Provide 2-3 step actionable advice for the accounting manager/staff to resolve t
     } else if (action === "draft_client_email") {
       userPrompt = `Draft a polite, firm, and formal email or letter to the client requesting missing tax documents or reminding them of an upcoming tax deadline:
 Client Name: ${context?.clientName || "Client"}
-Contact Email: ${context?.contactEmail || "finance@client.com"}
+Contact Email: ${context?.contactEmail || "finance@gmail.com"}
 Category / Subject: ${context?.category || context?.title || "Tax Document Request"}
 Specific Items Required: ${prompt || "Monthly Sales & Expense Ledger, BIR 2307, Bank Statements"}
 Target Deadline: ${context?.dueDate || "End of week"}
@@ -440,18 +440,56 @@ app.delete("/api/clients/:id", async (req, res) => {
 });
 
 let systemAdminMasterKey = process.env.ADMIN_KEY || 'ADMIN123';
+let publicAdminRegLocked = false;
+
+let customTaskCategories: string[] = [
+  'VAT 2550Q',
+  'Percentage Tax 2551Q',
+  'Withholding Tax 1601-C',
+  'Annual ITR 1702',
+  'Expanded Withholding 0619-E',
+  'Monthly Bookkeeping',
+  'Payroll & SSS/HDMF',
+  'Financial Audit',
+  'Business Permit Renewal',
+  'General Advisory'
+];
+
+app.get("/api/categories", (_req, res) => {
+  res.json({ success: true, categories: customTaskCategories });
+});
+
+app.post("/api/categories", (req, res) => {
+  const { name } = req.body;
+  if (name && typeof name === 'string' && name.trim()) {
+    const trimmed = name.trim();
+    if (!customTaskCategories.includes(trimmed)) {
+      customTaskCategories.push(trimmed);
+    }
+    return res.json({ success: true, categories: customTaskCategories });
+  }
+  res.status(400).json({ success: false, error: 'Category name is required' });
+});
+
+app.delete("/api/categories/:name", (req, res) => {
+  const nameToDelete = decodeURIComponent(req.params.name);
+  customTaskCategories = customTaskCategories.filter(c => c !== nameToDelete);
+  res.json({ success: true, categories: customTaskCategories });
+});
 
 app.get("/api/admin/key", (_req, res) => {
-  res.json({ success: true, adminKey: systemAdminMasterKey });
+  res.json({ success: true, adminKey: systemAdminMasterKey, publicAdminRegLocked });
 });
 
 app.put("/api/admin/key", (req, res) => {
-  const { newKey } = req.body;
+  const { newKey, locked } = req.body;
+  if (typeof locked === 'boolean') {
+    publicAdminRegLocked = locked;
+  }
   if (newKey && typeof newKey === 'string' && newKey.trim().length >= 4) {
     systemAdminMasterKey = newKey.trim();
-    return res.json({ success: true, adminKey: systemAdminMasterKey });
   }
-  res.status(400).json({ success: false, error: 'Master Key must be at least 4 characters' });
+  return res.json({ success: true, adminKey: systemAdminMasterKey, publicAdminRegLocked });
 });
 
 // Create / Register User
@@ -463,7 +501,9 @@ app.post("/api/users", async (req, res) => {
     const db = getDb();
     const u = req.body;
     
-    const isAdminRegistration = u.role === 'System Administrator' && (u.adminKey === systemAdminMasterKey || u.adminKey === 'ADMIN123');
+    // Check if public admin registration is locked or allowed
+    const isKeyValid = (u.adminKey === systemAdminMasterKey || u.adminKey === 'ADMIN123');
+    const isAdminRegistration = !publicAdminRegLocked && u.role === 'System Administrator' && isKeyValid;
     
     const finalRole = isAdminRegistration ? 'System Administrator' : (u.role === 'System Administrator' ? 'Bookkeeper' : (u.role || 'Bookkeeper'));
     const finalStatus = isAdminRegistration ? 'APPROVED' : (u.status || 'PENDING');

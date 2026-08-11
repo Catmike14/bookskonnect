@@ -54,7 +54,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
   const [adminKeyInput, setAdminKeyInput] = useState('');
   const [activeMasterKey, setActiveMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
-  const [signupFirm, setSignupFirm] = useState('Bookskonnect Advisory');
+  const [adminRegLocked, setAdminRegLocked] = useState(() => localStorage.getItem('bookskonnect_admin_reg_locked') === 'true');
+  const [signupFirm, setSignupFirm] = useState('Premier Accounting Advisory');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
@@ -63,9 +64,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     fetch('/api/admin/key')
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.adminKey) {
-          setActiveMasterKey(data.adminKey);
-          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        if (data.success) {
+          if (data.adminKey) {
+            setActiveMasterKey(data.adminKey);
+            localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+          }
+          if (typeof data.publicAdminRegLocked === 'boolean') {
+            setAdminRegLocked(data.publicAdminRegLocked);
+            localStorage.setItem('bookskonnect_admin_reg_locked', String(data.publicAdminRegLocked));
+          }
         }
       })
       .catch(() => {});
@@ -339,7 +346,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="email"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="e.g. cpa@bookskonnect.com"
+                      placeholder="e.g. cpa@gmail.com"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
                   </div>
@@ -411,7 +418,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                                 Pre-fill Admin Credentials
                               </span>
                             </div>
-                            <div className="text-[10px] text-slate-300">admin@bookskonnect.com (Password: admin123)</div>
+                            <div className="text-[10px] text-slate-300">admin@gmail.com (Password: admin123)</div>
                           </div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition" />
@@ -489,7 +496,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="email"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="m.santos@firm.com"
+                      placeholder="m.santos@gmail.com"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
                   </div>
@@ -509,12 +516,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 appearance-none cursor-pointer"
                     >
                       <option value="Bookkeeper">Bookkeeper</option>
+                      <option value="Accounting Associate">Accounting Associate</option>
+                      <option value="Admin Officer">Admin Officer</option>
                       <option value="Staff Auditor">Staff Auditor</option>
                       <option value="Tax Specialist">Tax Specialist</option>
                       <option value="Senior CPA">Senior CPA</option>
                       <option value="Manager">Manager / Partner</option>
-                      <option value="System Administrator">System Administrator (Requires Master Key)</option>
+                      {!adminRegLocked && (
+                        <option value="System Administrator">System Administrator (Requires Master Key)</option>
+                      )}
                     </select>
+                    {adminRegLocked && (
+                      <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                        🔒 System Admin self-registration is locked. New Admins must be added inside the Admin Hub.
+                      </p>
+                    )}
                   </div>
                 </div>
 

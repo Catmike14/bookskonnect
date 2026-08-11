@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Task, Client, Role, TaskStatus, UserStatus } from '../types';
+import { User, Task, Client, Role, TaskStatus, UserStatus, DEFAULT_TAX_CATEGORIES } from '../types';
 import { 
   ShieldCheck, 
   Users, 
@@ -25,7 +25,9 @@ import {
   Shield,
   UserCheck,
   UserX,
-  Clock
+  Clock,
+  Tag,
+  Plus
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -68,37 +70,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Master Admin Registration Key
   const [masterKey, setMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
+  const [adminRegLocked, setAdminRegLocked] = useState(() => localStorage.getItem('bookskonnect_admin_reg_locked') === 'true');
   const [showMasterKey, setShowMasterKey] = useState(false);
   const [keySaveMessage, setKeySaveMessage] = useState('');
+
+  // Custom Task Categories State
+  const [adminCategories, setAdminCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bk_task_categories');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return DEFAULT_TAX_CATEGORIES;
+  });
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [categoryMsg, setCategoryMsg] = useState('');
 
   React.useEffect(() => {
     fetch('/api/admin/key')
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.adminKey) {
-          setMasterKey(data.adminKey);
-          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        if (data.success) {
+          if (data.adminKey) {
+            setMasterKey(data.adminKey);
+            localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+          }
+          if (typeof data.publicAdminRegLocked === 'boolean') {
+            setAdminRegLocked(data.publicAdminRegLocked);
+            localStorage.setItem('bookskonnect_admin_reg_locked', String(data.publicAdminRegLocked));
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/categories')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+          setAdminCategories(data.categories);
+          localStorage.setItem('bk_task_categories', JSON.stringify(data.categories));
         }
       })
       .catch(() => {});
   }, []);
 
-  const handleSaveMasterKey = async () => {
+  const handleAddCategoryAdmin = () => {
+    if (!newCategoryInput.trim()) return;
+    const name = newCategoryInput.trim();
+    if (adminCategories.includes(name)) {
+      setCategoryMsg('Task type already exists.');
+      return;
+    }
+    const updated = [...adminCategories, name];
+    setAdminCategories(updated);
+    localStorage.setItem('bk_task_categories', JSON.stringify(updated));
+    setNewCategoryInput('');
+    setCategoryMsg(`Task type "${name}" added successfully.`);
+    setTimeout(() => setCategoryMsg(''), 3000);
+    fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    }).catch(() => {});
+  };
+
+  const handleDeleteCategoryAdmin = (nameToDelete: string) => {
+    const updated = adminCategories.filter(c => c !== nameToDelete);
+    setAdminCategories(updated);
+    localStorage.setItem('bk_task_categories', JSON.stringify(updated));
+    fetch(`/api/categories/${encodeURIComponent(nameToDelete)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
+  };
+
+  const handleSaveMasterKey = async (overrideLocked?: boolean) => {
     if (masterKey.trim().length < 4) {
       setKeySaveMessage('Error: Master Key must be at least 4 characters long.');
       return;
     }
     const cleanKey = masterKey.trim();
+    const targetLocked = overrideLocked !== undefined ? overrideLocked : adminRegLocked;
     localStorage.setItem('bookskonnect_admin_key', cleanKey);
+    localStorage.setItem('bookskonnect_admin_reg_locked', String(targetLocked));
     try {
       await fetch('/api/admin/key', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newKey: cleanKey })
+        body: JSON.stringify({ newKey: cleanKey, locked: targetLocked })
       });
     } catch (err) {}
-    setKeySaveMessage(`Master Key successfully updated to "${cleanKey}"!`);
+    setKeySaveMessage(`Security settings updated successfully!`);
     setTimeout(() => setKeySaveMessage(''), 4000);
+  };
+
+  const handleToggleAdminLock = (newLockedValue: boolean) => {
+    setAdminRegLocked(newLockedValue);
+    handleSaveMasterKey(newLockedValue);
   };
   
   // User Search & Filter
@@ -410,6 +478,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <option value="Senior CPA">Senior CPA</option>
                 <option value="Staff Auditor">Staff Auditor</option>
                 <option value="Tax Specialist">Tax Specialist</option>
+                <option value="Accounting Associate">Accounting Associate</option>
+                <option value="Admin Officer">Admin Officer</option>
                 <option value="Bookkeeper">Bookkeeper</option>
               </select>
 
@@ -518,6 +588,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <option value="Senior CPA">Senior CPA</option>
                             <option value="Staff Auditor">Staff Auditor</option>
                             <option value="Tax Specialist">Tax Specialist</option>
+                            <option value="Accounting Associate">Accounting Associate</option>
+                            <option value="Admin Officer">Admin Officer</option>
                             <option value="Bookkeeper">Bookkeeper</option>
                           </select>
                         </td>
@@ -797,40 +869,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <Shield className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">Admin Registration Master Key</h3>
-                  <p className="text-xs text-slate-500">Passcode required for users registering as System Administrator</p>
+                  <h3 className="font-extrabold text-sm text-slate-900">Admin Registration Control & Master Key</h3>
+                  <p className="text-xs text-slate-500">Configure public registration rules and security passcodes for Administrators</p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700">Custom Admin Master Passcode</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type={showMasterKey ? 'text' : 'password'}
-                    value={masterKey}
-                    onChange={(e) => setMasterKey(e.target.value)}
-                    placeholder="Enter new master key..."
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-500"
-                  />
+              {/* Toggle to Disable Public Admin Registration */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    Lock Public System Admin Registration
+                    {adminRegLocked && (
+                      <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-300">
+                        LOCKED
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {adminRegLocked 
+                      ? "Public users cannot select or claim System Administrator status on sign up. Admins must invite/add them internally."
+                      : "Public sign ups can claim System Administrator role if they enter the Master Key below."}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleToggleAdminLock(!adminRegLocked)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 border ${
+                    adminRegLocked 
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-xs' 
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                  }`}
+                >
+                  {adminRegLocked ? 'Locked (Admin-Only)' : 'Public Registration Allowed'}
+                </button>
+              </div>
+
+              {!adminRegLocked && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700">Custom Admin Master Passcode</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showMasterKey ? 'text' : 'password'}
+                      value={masterKey}
+                      onChange={(e) => setMasterKey(e.target.value)}
+                      placeholder="Enter new master key..."
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      onClick={() => setShowMasterKey(!showMasterKey)}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                    >
+                      {showMasterKey ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    New users attempting to self-register with System Administrator authority must supply this exact passcode.
+                  </p>
                   <button
-                    onClick={() => setShowMasterKey(!showMasterKey)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                    onClick={() => handleSaveMasterKey()}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2 mt-2"
                   >
-                    {showMasterKey ? 'Hide' : 'Show'}
+                    <ShieldCheck className="w-4 h-4" />
+                    Update Admin Master Key
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  New users attempting to self-register with System Administrator authority must supply this exact passcode.
-                </p>
-              </div>
-
-              <button
-                onClick={handleSaveMasterKey}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Update Admin Master Key
-              </button>
+              )}
 
               {keySaveMessage && (
                 <div className={`p-2.5 rounded-xl text-xs font-bold text-center border ${
@@ -886,6 +988,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {pinChangeMessage}
                 </div>
               )}
+            </div>
+
+            {/* Task Types & Custom Categories Configuration */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <Tag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">Custom Task Types & Compliance Services</h3>
+                    <p className="text-xs text-slate-500">Configure global task types selectable across firm broadcasts & assignments</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-200">
+                  {adminCategories.length} Active Categories
+                </span>
+              </div>
+
+              {/* Add New Category Row */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategoryAdmin(); }}
+                  placeholder="e.g., BIR Ruling Advisory, SEC Filing, Special Valuation..."
+                  className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
+                />
+                <button
+                  onClick={handleAddCategoryAdmin}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Task Type</span>
+                </button>
+              </div>
+
+              {categoryMsg && (
+                <p className="text-xs font-bold text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                  {categoryMsg}
+                </p>
+              )}
+
+              {/* Task Categories Grid */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {adminCategories.map((cat) => (
+                  <div
+                    key={cat}
+                    className="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold group transition"
+                  >
+                    <span>{cat}</span>
+                    {!DEFAULT_TAX_CATEGORIES.includes(cat) && (
+                      <button
+                        onClick={() => handleDeleteCategoryAdmin(cat)}
+                        title="Delete custom task type"
+                        className="text-slate-400 hover:text-red-600 transition cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
           </div>
@@ -986,7 +1152,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="alex.m@bookskonnect.com"
+                  placeholder="alex.m@gmail.com"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
                 />
               </div>
@@ -1003,6 +1169,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <option value="Senior CPA">Senior CPA</option>
                   <option value="Staff Auditor">Staff Auditor</option>
                   <option value="Tax Specialist">Tax Specialist</option>
+                  <option value="Accounting Associate">Accounting Associate</option>
+                  <option value="Admin Officer">Admin Officer</option>
                   <option value="Bookkeeper">Bookkeeper</option>
                 </select>
               </div>

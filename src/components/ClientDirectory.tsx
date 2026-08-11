@@ -355,7 +355,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">Contact Email</label>
                 <input
                   type="email"
-                  placeholder="accounting@client.com"
+                  placeholder="accounting@gmail.com"
                   value={newClient.contactEmail}
                   onChange={(e) => setNewClient({ ...newClient, contactEmail: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:border-emerald-500"

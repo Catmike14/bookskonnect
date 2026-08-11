@@ -47,6 +47,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
   const [adminKeyInput, setAdminKeyInput] = useState('');
   const [activeMasterKey, setActiveMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
+  const [adminRegLocked, setAdminRegLocked] = useState(() => localStorage.getItem('bookskonnect_admin_reg_locked') === 'true');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
@@ -56,9 +57,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     fetch('/api/admin/key')
       .then(r => r.json())
       .then(data => {
-        if (data.success && data.adminKey) {
-          setActiveMasterKey(data.adminKey);
-          localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+        if (data.success) {
+          if (data.adminKey) {
+            setActiveMasterKey(data.adminKey);
+            localStorage.setItem('bookskonnect_admin_key', data.adminKey);
+          }
+          if (typeof data.publicAdminRegLocked === 'boolean') {
+            setAdminRegLocked(data.publicAdminRegLocked);
+            localStorage.setItem('bookskonnect_admin_reg_locked', String(data.publicAdminRegLocked));
+          }
         }
       })
       .catch(() => {});
@@ -306,7 +313,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="admin@bookskonnect.com"
+                        placeholder="admin@gmail.com"
                         className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
                       />
                     </div>
@@ -447,7 +454,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         type="email"
                         value={signupEmail}
                         onChange={(e) => setSignupEmail(e.target.value)}
-                        placeholder="alex.morgan@bookskonnect.com"
+                        placeholder="alex.morgan@gmail.com"
                         className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
                       />
                     </div>
@@ -463,12 +470,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition-colors"
                     >
                       <option value="Bookkeeper">Bookkeeper</option>
+                      <option value="Accounting Associate">Accounting Associate</option>
+                      <option value="Admin Officer">Admin Officer</option>
                       <option value="Staff Auditor">Staff Auditor</option>
                       <option value="Tax Specialist">Tax Specialist</option>
                       <option value="Senior CPA">Senior CPA</option>
                       <option value="Manager">Manager</option>
-                      <option value="System Administrator">System Administrator (Requires Master Key)</option>
+                      {!adminRegLocked && (
+                        <option value="System Administrator">System Administrator (Requires Master Key)</option>
+                      )}
                     </select>
+                    {adminRegLocked && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        🔒 System Administrator self-registration is locked by policy. New accounts must be created or assigned by an existing Administrator.
+                      </p>
+                    )}
                   </div>
 
                   {signupRole === 'System Administrator' && (

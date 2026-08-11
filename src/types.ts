@@ -1,4 +1,4 @@
-export type Role = 'System Administrator' | 'Manager' | 'Senior CPA' | 'Staff Auditor' | 'Tax Specialist' | 'Bookkeeper';
+export type Role = 'System Administrator' | 'Manager' | 'Senior CPA' | 'Staff Auditor' | 'Tax Specialist' | 'Accounting Associate' | 'Admin Officer' | 'Bookkeeper';
 
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -25,7 +25,21 @@ export type TaxCategory =
   | 'Payroll & SSS/HDMF' 
   | 'Financial Audit' 
   | 'Business Permit Renewal' 
-  | 'General Advisory';
+  | 'General Advisory'
+  | (string & {});
+
+export const DEFAULT_TAX_CATEGORIES: string[] = [
+  'VAT 2550Q',
+  'Percentage Tax 2551Q',
+  'Withholding Tax 1601-C',
+  'Annual ITR 1702',
+  'Expanded Withholding 0619-E',
+  'Monthly Bookkeeping',
+  'Payroll & SSS/HDMF',
+  'Financial Audit',
+  'Business Permit Renewal',
+  'General Advisory'
+];
 
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL';
 
