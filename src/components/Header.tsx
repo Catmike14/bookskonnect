@@ -148,22 +148,20 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Team Directory</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('ADMIN')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeTab === 'ADMIN'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : currentUser?.role === 'System Administrator'
-                  ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin Control</span>
-              {currentUser?.role === 'System Administrator' && (
+            {currentUser?.role === 'System Administrator' && currentUser?.status === 'APPROVED' && (
+              <button
+                onClick={() => setActiveTab('ADMIN')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  activeTab === 'ADMIN'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Admin Control</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              )}
-            </button>
+              </button>
+            )}
           </nav>
         </div>
 

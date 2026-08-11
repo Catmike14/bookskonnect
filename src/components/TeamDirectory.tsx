@@ -23,6 +23,7 @@ interface TeamDirectoryProps {
   onFilterByAssignee: (userName: string) => void;
   users?: User[];
   onDeleteUser?: (userId: number) => void;
+  currentUser?: User;
 }
 
 export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
@@ -31,6 +32,7 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
   onFilterByAssignee,
   users = [],
   onDeleteUser,
+  currentUser,
 }) => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [searchMember, setSearchMember] = useState('');
@@ -228,7 +230,7 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
                   <span>Assign Task</span>
                 </button>
 
-                {onDeleteUser && member.role !== 'System Administrator' && (
+                {onDeleteUser && currentUser?.role === 'System Administrator' && currentUser?.status === 'APPROVED' && member.role !== 'System Administrator' && (
                   <button
                     onClick={() => {
                       if (confirm(`Are you sure you want to remove team member "${member.name}"?`)) {

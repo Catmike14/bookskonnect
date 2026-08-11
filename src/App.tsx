@@ -279,7 +279,19 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('bk_user', JSON.stringify(currentUser));
-  }, [currentUser]);
+    if (activeTab === 'ADMIN' && (currentUser?.role !== 'System Administrator' || currentUser?.status !== 'APPROVED')) {
+      setActiveTab('FEED');
+      setToasts(prev => [
+        {
+          id: 'access-denied-' + Date.now(),
+          title: '🚫 Access Restricted',
+          message: 'Only verified System Administrators can access the System Admin Control Hub.',
+          type: 'overdue'
+        },
+        ...prev
+      ]);
+    }
+  }, [currentUser, activeTab]);
 
   // Handlers
   const syncTaskApi = (task: Task) => {
@@ -730,6 +742,7 @@ export default function App() {
           <TeamDirectory
             tasks={tasks}
             users={allUsers}
+            currentUser={currentUser}
             onDeleteUser={handleDeleteUser}
             onSelectUserForBroadcast={(userName) => {
               setActiveTab('FEED');
@@ -742,7 +755,7 @@ export default function App() {
         )}
 
         {/* VIEW 5: SYSTEM ADMIN CONTROL HUB */}
-        {activeTab === 'ADMIN' && (
+        {activeTab === 'ADMIN' && currentUser?.role === 'System Administrator' && currentUser?.status === 'APPROVED' && (
           <AdminPanel
             currentUser={currentUser}
             allUsers={allUsers}

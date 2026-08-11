@@ -63,6 +63,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   aiEnabled = true,
   onToggleAiEnabled,
 }) => {
+  // Authorization Check: Only approved System Administrators are allowed
+  if (currentUser.role !== 'System Administrator' || currentUser.status !== 'APPROVED') {
+    return (
+      <div className="bg-white p-8 rounded-3xl border border-amber-200 text-center max-w-lg mx-auto my-12 shadow-md space-y-4">
+        <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
+          <Lock className="w-7 h-7" />
+        </div>
+        <div>
+          <h3 className="text-lg font-extrabold text-slate-900">System Admin Control Restricted</h3>
+          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+            {currentUser.status === 'PENDING'
+              ? `Your account (${currentUser.name} - ${currentUser.role}) is currently awaiting verification by a System Administrator.`
+              : `Your assigned role (${currentUser.role}) does not have System Administrator authority.`}
+          </p>
+        </div>
+        <div className="pt-2">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-full text-xs font-bold">
+            <Shield className="w-3.5 h-3.5 text-amber-600" />
+            Administrator Approval Required
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<'USERS' | 'DATA' | 'TASKS' | 'AUDIT' | 'SECURITY'>('USERS');
   
   // Security Policies State

@@ -199,6 +199,16 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
         </div>
       </div>
 
+      {currentUser?.status === 'PENDING' && (
+        <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-3 text-xs text-amber-900 mb-4 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold block">Account Approval Pending</span>
+            <span>Your account is awaiting verification by a System Administrator. Broadcast posting will be enabled once an admin approves your account.</span>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
 
         {/* Quick Recurring Tax Schedule Presets */}
@@ -524,9 +534,14 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white py-3 rounded-xl text-xs font-bold shadow-md shadow-slate-900/10 transition cursor-pointer flex items-center justify-center gap-2"
+          disabled={currentUser?.status === 'PENDING'}
+          className={`w-full py-3 rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2 ${
+            currentUser?.status === 'PENDING'
+              ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none border border-slate-300/80'
+              : 'bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white cursor-pointer shadow-slate-900/10'
+          }`}
         >
-          <span>Post Update to Team Feed</span>
+          <span>{currentUser?.status === 'PENDING' ? 'Awaiting Admin Verification...' : 'Post Update to Team Feed'}</span>
           <Send className="w-3.5 h-3.5" />
         </button>
 
