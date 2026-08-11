@@ -92,12 +92,22 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const fileList = Array.from(e.target.files);
-    const newAtts = fileList.map((f: File) => ({
-      name: f.name,
-      url: '#',
-      size: (f.size / 1024).toFixed(1) + ' KB'
-    }));
-    setAttachments(prev => [...prev, ...newAtts]);
+
+    fileList.forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = (event.target?.result as string) || '#';
+        setAttachments(prev => [
+          ...prev,
+          {
+            name: file.name,
+            url: dataUrl,
+            size: (file.size / 1024).toFixed(1) + ' KB'
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
     e.target.value = '';
   };
 

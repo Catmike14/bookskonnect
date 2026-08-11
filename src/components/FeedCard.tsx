@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   Paperclip,
+  Download,
   Share2,
   ThumbsUp,
   Flame,
@@ -221,18 +222,34 @@ export const FeedCard: React.FC<FeedCardProps> = ({
         {/* Attachments if any */}
         {task.attachments && task.attachments.length > 0 && (
           <div className="mt-3 flex items-center gap-2 flex-wrap">
-            {task.attachments.map((att, i) => (
-              <a
-                key={i}
-                href={att.url}
-                onClick={(e) => e.preventDefault()}
-                className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold transition"
-              >
-                <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                <span>{att.name}</span>
-                {att.size && <span className="text-[10px] text-slate-400">({att.size})</span>}
-              </a>
-            ))}
+            {task.attachments.map((att, i) => {
+              const hasValidLink = att.url && att.url !== '#';
+              return (
+                <a
+                  key={i}
+                  href={hasValidLink ? att.url : undefined}
+                  download={hasValidLink ? att.name : undefined}
+                  target={hasValidLink ? "_blank" : undefined}
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    if (!hasValidLink) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 border px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                    hasValidLink 
+                      ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800 cursor-pointer' 
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                  title={hasValidLink ? `Click to download ${att.name}` : att.name}
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{att.name}</span>
+                  {att.size && <span className="text-[10px] opacity-70">({att.size})</span>}
+                  {hasValidLink && <Download className="w-3 h-3 text-emerald-600 ml-0.5 shrink-0" />}
+                </a>
+              );
+            })}
           </div>
         )}
 
