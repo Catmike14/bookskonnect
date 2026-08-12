@@ -13,6 +13,8 @@ import { AICpaAssistantModal } from './components/AICpaAssistantModal';
 import { AuthModal } from './components/AuthModal';
 import { LandingPage } from './components/LandingPage';
 import { ToastNotificationContainer, ToastAlert } from './components/ToastNotification';
+import { fetchCurrentUser, logout as authLogout } from './utils/authClient';
+import { apiFetch } from './utils/apiFetch';
 import { 
   Inbox, 
   Filter, 
@@ -26,7 +28,11 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  // LocalStorage persistence state initialization
+  // Local cache of the registered-users list (for dropdowns, Team Directory,
+  // etc.) -- purely a display cache. It carries no authority: who you
+  // actually are is determined solely by the server-side session (see
+  // currentUser / the auth bootstrap effect below), never by anything read
+  // from localStorage.
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('bk_registered_users');
     if (saved) {
@@ -39,10 +45,8 @@ export default function App() {
     return [];
   });
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('bk_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem('bk_tasks');
@@ -54,7 +58,34 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CLIENTS;
   });
 
-  const [deadlines] = useState<TaxDeadline[]>(INITIAL_DEADLINES);
+  const [deadlines, setDeadlines] = useState<TaxDeadline[]>(INITIAL_DEADLINES);
+
+  // Ask the server who the current session cookie belongs to. This is the
+  // only source of truth for "who am I" -- there is no client-side login
+  // state that isn't backed by a real, server-verified session.
+  useEffect(() => {
+    let isMounted = true;
+    fetchCurrentUser().then((user) => {
+      if (isMounted) {
+        setCurrentUser(user);
+        setIsCheckingSession(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, []);
+
+  // Load the tax compliance calendar. Works whether or not a database is
+  // configured (the server keeps an in-memory fallback list either way).
+  useEffect(() => {
+    apiFetch('/api/deadlines')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.deadlines)) {
+          setDeadlines(data.deadlines);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN'>('FEED');
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,7 +115,7 @@ export default function App() {
     let isMounted = true;
     async function loadBootstrap() {
       try {
-        const res = await fetch('/api/bootstrap');
+        const res = await apiFetch('/api/bootstrap');
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data.success && data.dbConnected) {
@@ -102,51 +133,120 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // Admin Management Handlers
-  const handleUpdateUserRole = (userId: number, newRole: Role) => {
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return { ...u, role: newRole };
+  // Admin Management Handlers -- these all hit admin-only server routes.
+  // Local state is only updated after the server confirms success; if the
+  // request is rejected (401/403 because the caller isn't really an admin)
+  // we surface that instead of silently pretending it worked.
+  const handleUpdateUserRole = async (userId: number, newRole: Role) => {
+    try {
+      const res = await apiFetch(`/api/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setToasts(prev => [{ id: 'err-role-' + Date.now(), title: '🚫 Update Failed', message: data.error || 'Could not update role.', type: 'overdue' }, ...prev]);
+        return;
       }
-      return u;
-    }));
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser(prev => prev ? ({ ...prev, role: newRole }) : null);
+      setAllUsers(prev => prev.map(u => (u.id === userId ? { ...u, role: newRole } : u)));
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(prev => (prev ? { ...prev, role: newRole } : null));
+      }
+    } catch (e) {
+      setToasts(prev => [{ id: 'err-role-' + Date.now(), title: '🚫 Update Failed', message: 'Network error updating role.', type: 'overdue' }, ...prev]);
     }
-    fetch(`/api/users/${userId}/role`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: newRole })
-    }).catch(() => {});
   };
 
-  const handleUpdateUserStatus = (userId: number, newStatus: import('./types').UserStatus) => {
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return { ...u, status: newStatus };
+  const handleUpdateUserStatus = async (userId: number, newStatus: import('./types').UserStatus) => {
+    try {
+      const res = await apiFetch(`/api/users/${userId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setToasts(prev => [{ id: 'err-status-' + Date.now(), title: '🚫 Update Failed', message: data.error || 'Could not update status.', type: 'overdue' }, ...prev]);
+        return;
       }
-      return u;
-    }));
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser(prev => prev ? ({ ...prev, status: newStatus }) : null);
+      setAllUsers(prev => prev.map(u => (u.id === userId ? { ...u, status: newStatus } : u)));
+      if (currentUser && currentUser.id === userId) {
+        setCurrentUser(prev => (prev ? { ...prev, status: newStatus } : null));
+      }
+    } catch (e) {
+      setToasts(prev => [{ id: 'err-status-' + Date.now(), title: '🚫 Update Failed', message: 'Network error updating status.', type: 'overdue' }, ...prev]);
     }
-    fetch(`/api/users/${userId}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
-    }).catch(() => {});
   };
 
-  const handleDeleteUser = (userId: number) => {
-    setAllUsers(prev => prev.filter(u => u.id !== userId));
-    fetch(`/api/users/${userId}`, { method: 'DELETE' }).catch(() => {});
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      const res = await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setToasts(prev => [{ id: 'err-deluser-' + Date.now(), title: '🚫 Delete Failed', message: data.error || 'Could not delete user.', type: 'overdue' }, ...prev]);
+        return;
+      }
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (e) {
+      setToasts(prev => [{ id: 'err-deluser-' + Date.now(), title: '🚫 Delete Failed', message: 'Network error deleting user.', type: 'overdue' }, ...prev]);
+    }
+  };
+
+  // Admin Hub "Add User" -- provisions an account directly with a generated
+  // temporary password, returned once so the admin can relay it to the new
+  // hire out-of-band. The new hire should change it after first login.
+  const handleAdminCreateUser = async (name: string, email: string, role: Role): Promise<{ success: boolean; error?: string; tempPassword?: string }> => {
+    try {
+      const res = await apiFetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, role })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to create user.' };
+      }
+      setAllUsers(prev => [...prev, data.user]);
+      return { success: true, tempPassword: data.tempPassword };
+    } catch (e) {
+      return { success: false, error: 'Network error creating user.' };
+    }
   };
 
   const handleDeleteTask = (taskId: number) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
-    fetch(`/api/tasks/${taskId}`, { method: 'DELETE' }).catch(() => {});
+    apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' }).catch(() => {});
   };
 
+  // Tax Deadline (Compliance Calendar) handlers
+  const handleAddDeadline = async (deadline: Omit<TaxDeadline, 'id'>) => {
+    try {
+      const res = await apiFetch('/api/deadlines', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deadline)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success && data.deadline) {
+        setDeadlines(prev => [...prev, data.deadline]);
+      }
+    } catch (e) {}
+  };
+
+  const handleUpdateDeadline = async (id: number, fields: Partial<TaxDeadline>) => {
+    setDeadlines(prev => prev.map(d => (d.id === id ? { ...d, ...fields } : d)));
+    apiFetch(`/api/deadlines/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields)
+    }).catch(() => {});
+  };
+
+  const handleDeleteDeadline = async (id: number) => {
+    setDeadlines(prev => prev.filter(d => d.id !== id));
+    apiFetch(`/api/deadlines/${id}`, { method: 'DELETE' }).catch(() => {});
+  };
 
   const handleRestoreData = (importedData: { tasks?: Task[]; clients?: Client[]; users?: User[] }) => {
     if (importedData.tasks) setTasks(importedData.tasks);
@@ -154,39 +254,20 @@ export default function App() {
     if (importedData.users) setAllUsers(importedData.users);
   };
 
-  // Persist registered users
+  // Persist the display-only registered-users cache (not an auth source)
   useEffect(() => {
     localStorage.setItem('bk_registered_users', JSON.stringify(allUsers));
   }, [allUsers]);
 
-  const handleRegisterUser = (newUser: User) => {
-    const isAdmin = newUser.role === 'System Administrator' && newUser.adminKey === 'ADMIN123';
-    const userToSave: User = {
-      ...newUser,
-      role: isAdmin ? 'System Administrator' : (newUser.role || 'Bookkeeper'),
-      status: isAdmin ? 'APPROVED' : (newUser.status || 'PENDING')
-    };
-    setAllUsers(prev => {
-      if (prev.some(u => u.id === userToSave.id || u.email.toLowerCase() === userToSave.email.toLowerCase())) {
-        return prev;
-      }
-      return [...prev, userToSave];
-    });
-    fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...userToSave,
-        adminKey: newUser.adminKey
-      })
-    }).catch(() => {});
-  };
-
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem('bk_user', JSON.stringify(user));
+    setAllUsers(prev => {
+      if (prev.some(u => u.id === user.id)) {
+        return prev.map(u => (u.id === user.id ? user : u));
+      }
+      return [...prev, user];
+    });
     setIsAuthModalOpen(false);
-    // Add success toast
     setToasts(prev => [
       {
         id: 'auth-' + Date.now(),
@@ -199,9 +280,9 @@ export default function App() {
     ]);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authLogout();
     setCurrentUser(null);
-    localStorage.removeItem('bk_user');
     setIsAuthModalOpen(false);
     setToasts(prev => [
       {
@@ -278,7 +359,6 @@ export default function App() {
   }, [clients]);
 
   useEffect(() => {
-    localStorage.setItem('bk_user', JSON.stringify(currentUser));
     if (activeTab === 'ADMIN' && (currentUser?.role !== 'System Administrator' || currentUser?.status !== 'APPROVED')) {
       setActiveTab('FEED');
       setToasts(prev => [
@@ -295,7 +375,7 @@ export default function App() {
 
   // Handlers
   const syncTaskApi = (task: Task) => {
-    fetch('/api/tasks', {
+    apiFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(task)
@@ -425,7 +505,7 @@ export default function App() {
       id: Date.now()
     };
     setClients([...clients, newClient]);
-    fetch('/api/clients', {
+    apiFetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newClient)
@@ -444,7 +524,7 @@ export default function App() {
       }
       return c;
     }));
-    fetch(`/api/clients/${clientId}`, {
+    apiFetch(`/api/clients/${clientId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes: newNotes, healthStatus: newHealth, ...(fullClientData || {}) })
@@ -453,20 +533,28 @@ export default function App() {
 
   const handleDeleteClient = (clientId: number) => {
     setClients(prev => prev.filter(c => c.id !== clientId));
-    fetch(`/api/clients/${clientId}`, { method: 'DELETE' }).catch(() => {});
+    apiFetch(`/api/clients/${clientId}`, { method: 'DELETE' }).catch(() => {});
   };
 
 
   const handleResetDataToDefault = () => {
-    if (confirm('Clear all data and reset firm state to clean empty workspace?')) {
-      localStorage.removeItem('bk_tasks');
-      localStorage.removeItem('bk_clients');
-      localStorage.removeItem('bk_users');
-      setTasks([]);
-      setClients([]);
-      setAllUsers([]);
-      fetch('/api/reset', { method: 'POST' }).catch(() => {});
-    }
+    if (!confirm('Clear all tasks, clients, and tax deadlines and reset the firm workspace? This cannot be undone.')) return;
+    apiFetch('/api/reset', { method: 'POST' })
+      .then(res => res.json().catch(() => ({})).then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+          setToasts(prev => [{ id: 'err-reset-' + Date.now(), title: '🚫 Reset Failed', message: data.error || 'Only System Administrators can reset firm data.', type: 'overdue' }, ...prev]);
+          return;
+        }
+        localStorage.removeItem('bk_tasks');
+        localStorage.removeItem('bk_clients');
+        setTasks([]);
+        setClients([]);
+        setDeadlines([]);
+      })
+      .catch(() => {
+        setToasts(prev => [{ id: 'err-reset-' + Date.now(), title: '🚫 Reset Failed', message: 'Network error while resetting data.', type: 'overdue' }, ...prev]);
+      });
   };
 
 
@@ -555,12 +643,18 @@ export default function App() {
     setToasts(newToasts.slice(0, 4));
   };
 
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-sm font-semibold">
+        Checking session…
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <LandingPage
-        allUsers={allUsers}
         onLoginSuccess={handleLoginSuccess}
-        onRegisterUser={handleRegisterUser}
       />
     );
   }
@@ -671,13 +765,15 @@ export default function App() {
                     ))}
                   </select>
 
-                  <button
-                    onClick={handleResetDataToDefault}
-                    title="Reset to default demo data"
-                    className="p-1.5 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
+                  {currentUser?.role === 'System Administrator' && currentUser?.status === 'APPROVED' && (
+                    <button
+                      onClick={handleResetDataToDefault}
+                      title="Reset firm data (System Administrator only)"
+                      className="p-1.5 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
               </div>
@@ -762,7 +858,7 @@ export default function App() {
             onUpdateUserRole={handleUpdateUserRole}
             onUpdateUserStatus={handleUpdateUserStatus}
             onDeleteUser={handleDeleteUser}
-            onAddUser={handleRegisterUser}
+            onAddUser={handleAdminCreateUser}
             tasks={tasks}
             clients={clients}
             onDeleteTask={handleDeleteTask}
@@ -771,6 +867,10 @@ export default function App() {
             onRestoreData={handleRestoreData}
             aiEnabled={aiEnabled}
             onToggleAiEnabled={handleToggleAiEnabled}
+            deadlines={deadlines}
+            onAddDeadline={handleAddDeadline}
+            onUpdateDeadline={handleUpdateDeadline}
+            onDeleteDeadline={handleDeleteDeadline}
           />
         )}
 
@@ -781,8 +881,6 @@ export default function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
-        allUsers={allUsers}
-        onRegisterUser={handleRegisterUser}
       />
 
       {/* AI CPA Assistant Modal (conditionally rendered when AI features are enabled) */}

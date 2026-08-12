@@ -7,6 +7,29 @@ export const users = pgTable('users', {
   avatar: text('avatar').notNull(),
   email: text('email').notNull(),
   status: text('status').default('APPROVED').notNull(),
+  // bcrypt hash. Nullable only to tolerate pre-existing rows created before
+  // this column existed; the app layer always requires it for new signups
+  // and rejects login for accounts that don't have one.
+  passwordHash: text('password_hash'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Server-side session tokens. A session token is an opaque random value
+// handed to the browser as an httpOnly cookie; the token itself carries no
+// identity or role information, so it can't be forged or edited client-side.
+export const sessions = pgTable('sessions', {
+  id: serial('id').primaryKey(),
+  token: text('token').notNull().unique(),
+  userId: integer('user_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+// Custom task/tax categories, previously kept in a plain in-memory array on
+// the server (lost on every restart/redeploy). Persisted properly now.
+export const taskCategories = pgTable('task_categories', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

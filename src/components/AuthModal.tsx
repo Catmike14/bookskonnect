@@ -1,85 +1,61 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { 
-  X, 
-  Lock, 
-  Mail, 
-  User as UserIcon, 
-  Briefcase, 
-  Building2, 
-  CheckCircle2, 
-  ArrowRight, 
-  ShieldCheck, 
-  Layers, 
-  Sparkles,
+import { login, signup, fetchAdminRegLocked } from '../utils/authClient';
+import {
+  X,
+  Lock,
+  Mail,
+  User as UserIcon,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  Layers,
   KeyRound,
   UserPlus,
   LogIn,
   AlertCircle,
-  Smartphone,
-  Shield,
-  Key,
-  Check
+  Loader2,
 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
-  allUsers: User[];
-  onRegisterUser: (newUser: User) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
-  allUsers,
-  onRegisterUser,
 }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'SIGNUP' | '2FA'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [pending2FAUser, setPending2FAUser] = useState<User | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [enable2FA, setEnable2FA] = useState(true);
 
   // Signup form state
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupRole, setSignupRole] = useState<Role>('Bookkeeper');
   const [adminKeyInput, setAdminKeyInput] = useState('');
-  const [activeMasterKey, setActiveMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
-  const [adminRegLocked, setAdminRegLocked] = useState(() => localStorage.getItem('bookskonnect_admin_reg_locked') === 'true');
+  const [adminRegLocked, setAdminRegLocked] = useState(false);
   const [signupFirm, setSignupFirm] = useState('Premier Accounting Advisory');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupError, setSignupError] = useState('');
 
   React.useEffect(() => {
-    fetch('/api/admin/key')
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          if (data.adminKey) {
-            setActiveMasterKey(data.adminKey);
-            localStorage.setItem('bookskonnect_admin_key', data.adminKey);
-          }
-          if (typeof data.publicAdminRegLocked === 'boolean') {
-            setAdminRegLocked(data.publicAdminRegLocked);
-            localStorage.setItem('bookskonnect_admin_reg_locked', String(data.publicAdminRegLocked));
-          }
-        }
-      })
-      .catch(() => {});
+    fetchAdminRegLocked().then(setAdminRegLocked);
   }, []);
 
   if (!isOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -88,47 +64,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const normalizedEmail = loginEmail.trim().toLowerCase();
-    const matchedUser = allUsers.find(
-      (u) => u.email.toLowerCase() === normalizedEmail
-    );
+    setIsSubmitting(true);
+    const result = await login(loginEmail.trim(), loginPassword);
+    setIsSubmitting(false);
 
-    const userToAuth = matchedUser || {
-      id: Date.now(),
-      name: loginEmail.split('@')[0].replace('.', ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase()),
-      email: loginEmail.trim(),
-      role: 'Bookkeeper' as Role,
-      status: 'PENDING' as const,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(loginEmail)}`
-    };
-
-    if (!matchedUser) {
-      onRegisterUser(userToAuth);
-    }
-
-    if (enable2FA) {
-      setPending2FAUser(userToAuth);
-      setMode('2FA');
-    } else {
-      onLoginSuccess(userToAuth);
-      onClose();
-    }
-  };
-
-  const handleVerify2FA = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pending2FAUser) return;
-
-    if (twoFactorCode.trim().length < 4) {
-      setLoginError('Please enter a valid 6-digit 2FA verification code (e.g. 123456)');
+    if (!result.success || !result.user) {
+      setLoginError(result.error || 'Invalid email or password.');
       return;
     }
 
-    onLoginSuccess(pending2FAUser);
+    onLoginSuccess(result.user);
     onClose();
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError('');
 
@@ -136,60 +85,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setSignupError('Please provide your full name.');
       return;
     }
-
     if (!signupEmail.trim() || !signupEmail.includes('@')) {
       setSignupError('Please enter a valid work email address.');
       return;
     }
-
     if (signupPassword.length < 6) {
       setSignupError('Password must be at least 6 characters long.');
       return;
     }
-
     if (signupPassword !== signupConfirmPassword) {
       setSignupError('Passwords do not match.');
       return;
     }
 
-    // Check if email already exists
-    const exists = allUsers.some(
-      (u) => u.email.toLowerCase() === signupEmail.trim().toLowerCase()
-    );
-
-    if (exists) {
-      setSignupError('An account with this email already exists. Please log in.');
-      return;
-    }
-
-    if (signupRole === 'System Administrator' && adminKeyInput.trim() !== activeMasterKey && adminKeyInput.trim() !== 'ADMIN123') {
-      setSignupError('Invalid Admin Security Key. Please enter the current Master Passcode configured by system administrators.');
-      return;
-    }
-
-    const isAdmin = signupRole === 'System Administrator' && (adminKeyInput.trim() === activeMasterKey || adminKeyInput.trim() === 'ADMIN123');
-
-    // Generate avatar using initials seed
-    const avatarUrl = `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150`;
-
-    const newUser: User = {
-      id: Date.now(),
+    setIsSubmitting(true);
+    const result = await signup({
       name: signupName.trim(),
       email: signupEmail.trim(),
-      role: isAdmin ? 'System Administrator' : (signupRole || 'Bookkeeper'),
-      status: isAdmin ? 'APPROVED' : 'PENDING',
-      adminKey: adminKeyInput.trim(),
-      avatar: avatarUrl
-    };
+      password: signupPassword,
+      role: signupRole,
+      adminKeyAttempt: adminKeyInput.trim(),
+    });
+    setIsSubmitting(false);
 
-    onRegisterUser(newUser);
-    onLoginSuccess(newUser);
+    if (!result.success || !result.user) {
+      setSignupError(result.error || 'Failed to create account.');
+      return;
+    }
+
+    onLoginSuccess(result.user);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div 
+      <div
         className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-8"
         onClick={(e) => e.stopPropagation()}
       >
@@ -254,63 +184,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto max-h-[75vh]">
-          {mode === '2FA' ? (
+          {mode === 'LOGIN' ? (
             <div className="space-y-6">
-              <div className="p-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-center space-y-2">
-                <div className="w-12 h-12 bg-emerald-600 text-white rounded-full mx-auto flex items-center justify-center shadow-md">
-                  <Smartphone className="w-6 h-6" />
-                </div>
-                <h3 className="font-extrabold text-sm text-slate-900">Two-Factor Authentication (2FA)</h3>
-                <p className="text-xs text-slate-600">
-                  A 6-digit verification code was generated for <strong className="text-emerald-800">{pending2FAUser?.email}</strong>
-                </p>
-              </div>
-
-              <form onSubmit={handleVerify2FA} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1 text-center">
-                    Enter Security OTP Verification Code
-                  </label>
-                  <input
-                    type="text"
-                    value={twoFactorCode}
-                    onChange={(e) => setTwoFactorCode(e.target.value)}
-                    placeholder="e.g. 884920"
-                    maxLength={6}
-                    className="w-full text-center tracking-widest text-lg font-black py-3 bg-slate-50 border border-slate-300 rounded-2xl outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                  <p className="text-[10px] text-slate-400 text-center mt-1">
-                    Enter any 6 digits to verify session token.
-                  </p>
-                </div>
-
-                {loginError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <span>{loginError}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Authenticate & Open Dashboard</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMode('LOGIN')}
-                  className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
-                >
-                  Back to Sign In
-                </button>
-              </form>
-            </div>
-          ) : mode === 'LOGIN' ? (
-            <div className="space-y-6">
-              {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-emerald-600" />
@@ -358,13 +233,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
-                  <span>Sign In to Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Sign In to Dashboard</span>}
+                  {!isSubmitting && <ArrowRight className="w-4 h-4" />}
                 </button>
               </form>
-
             </div>
           ) : (
             /* Sign Up Form */
@@ -465,22 +340,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {signupRole === 'System Administrator' && (
                 <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      Admin Security Passcode
-                    </span>
-                    <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 font-mono font-bold">Key: ADMIN123</span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Admin Security Passcode
                   </div>
                   <input
                     type="password"
                     value={adminKeyInput}
                     onChange={(e) => setAdminKeyInput(e.target.value)}
-                    placeholder="Enter master admin key (e.g. ADMIN123)"
+                    placeholder="Enter the master admin key"
                     className="w-full px-3 py-2 bg-white border border-emerald-300 focus:border-emerald-500 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none"
                   />
                   <p className="text-[10px] text-slate-600">
-                    Entering the valid master passcode grants immediate System Administrator access upon registration.
+                    Ask an existing System Administrator for the current master passcode. Entering the correct key grants System Administrator access immediately; an incorrect key registers a regular Bookkeeper account instead.
                   </p>
                 </div>
               )}
@@ -522,9 +394,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   <span>Create Account & Join Team</span>
                 </button>
               </div>

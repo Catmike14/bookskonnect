@@ -52,6 +52,25 @@ export async function ensureTablesExist() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'APPROVED';
   `;
   await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP NOT NULL
+    );
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    );
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS clients (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { User, Task, Client, Role, TaskStatus, UserStatus, DEFAULT_TAX_CATEGORIES } from '../types';
+import { DeadlineManager } from './DeadlineManager';
+import { changePassword } from '../utils/authClient';
+import { apiFetch } from '../utils/apiFetch';
 import { 
   ShieldCheck, 
   Users, 
@@ -36,7 +39,7 @@ interface AdminPanelProps {
   onUpdateUserRole: (userId: number, newRole: Role) => void;
   onUpdateUserStatus?: (userId: number, newStatus: UserStatus) => void;
   onDeleteUser: (userId: number) => void;
-  onAddUser: (user: User) => void;
+  onAddUser: (name: string, email: string, role: Role) => Promise<{ success: boolean; error?: string; tempPassword?: string }>;
   tasks: Task[];
   clients: Client[];
   onDeleteTask: (taskId: number) => void;
@@ -45,6 +48,10 @@ interface AdminPanelProps {
   onRestoreData?: (importedData: { tasks?: Task[]; clients?: Client[]; users?: User[] }) => void;
   aiEnabled?: boolean;
   onToggleAiEnabled?: (enabled: boolean) => void;
+  deadlines?: import('../types').TaxDeadline[];
+  onAddDeadline?: (deadline: Omit<import('../types').TaxDeadline, 'id'>) => void;
+  onUpdateDeadline?: (id: number, fields: Partial<import('../types').TaxDeadline>) => void;
+  onDeleteDeadline?: (id: number) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -62,6 +69,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRestoreData,
   aiEnabled = true,
   onToggleAiEnabled,
+  deadlines = [],
+  onAddDeadline,
+  onUpdateDeadline,
+  onDeleteDeadline,
 }) => {
   // Authorization Check: Only approved System Administrators are allowed
   if (currentUser.role !== 'System Administrator' || currentUser.status !== 'APPROVED') {
@@ -89,18 +100,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   }
 
   const [activeTab, setActiveTab] = useState<'USERS' | 'DATA' | 'TASKS' | 'AUDIT' | 'SECURITY'>('USERS');
-  
-  // Security Policies State
-  const [require2FA, setRequire2FA] = useState(true);
-  const [sessionTimeout, setSessionTimeout] = useState('30');
-  const [adminPin, setAdminPin] = useState('8888');
-  const [showAdminPin, setShowAdminPin] = useState(false);
-  const [pinChangeMessage, setPinChangeMessage] = useState('');
 
-  // Master Admin Registration Key
-  const [masterKey, setMasterKey] = useState(() => localStorage.getItem('bookskonnect_admin_key') || 'ADMIN123');
-  const [adminRegLocked, setAdminRegLocked] = useState(() => localStorage.getItem('bookskonnect_admin_reg_locked') === 'true');
-  const [showMasterKey, setShowMasterKey] = useState(false);
+  // Change-my-password (Security tab)
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState('');
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState('');
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+
+  // Master Admin Registration Key -- the key itself is never fetched from
+  // or displayed by the server; this input is write-only. Whether public
+  // self-registration as admin is locked is the one piece of state we do
+  // read back (it's not secret).
+  const [masterKeyInput, setMasterKeyInput] = useState('');
+  const [adminRegLocked, setAdminRegLocked] = useState(false);
   const [keySaveMessage, setKeySaveMessage] = useState('');
 
   // Custom Task Categories State
@@ -117,23 +130,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [categoryMsg, setCategoryMsg] = useState('');
 
   React.useEffect(() => {
-    fetch('/api/admin/key')
+    apiFetch('/api/auth/admin-reg-status')
       .then(r => r.json())
       .then(data => {
-        if (data.success) {
-          if (data.adminKey) {
-            setMasterKey(data.adminKey);
-            localStorage.setItem('bookskonnect_admin_key', data.adminKey);
-          }
-          if (typeof data.publicAdminRegLocked === 'boolean') {
-            setAdminRegLocked(data.publicAdminRegLocked);
-            localStorage.setItem('bookskonnect_admin_reg_locked', String(data.publicAdminRegLocked));
-          }
+        if (data.success && typeof data.locked === 'boolean') {
+          setAdminRegLocked(data.locked);
         }
       })
       .catch(() => {});
 
-    fetch('/api/categories')
+    apiFetch('/api/categories')
       .then(r => r.json())
       .then(data => {
         if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
@@ -157,7 +163,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewCategoryInput('');
     setCategoryMsg(`Task type "${name}" added successfully.`);
     setTimeout(() => setCategoryMsg(''), 3000);
-    fetch('/api/categories', {
+    apiFetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
@@ -168,34 +174,67 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const updated = adminCategories.filter(c => c !== nameToDelete);
     setAdminCategories(updated);
     localStorage.setItem('bk_task_categories', JSON.stringify(updated));
-    fetch(`/api/categories/${encodeURIComponent(nameToDelete)}`, {
+    apiFetch(`/api/categories/${encodeURIComponent(nameToDelete)}`, {
       method: 'DELETE'
     }).catch(() => {});
   };
 
   const handleSaveMasterKey = async (overrideLocked?: boolean) => {
-    if (masterKey.trim().length < 4) {
+    const targetLocked = overrideLocked !== undefined ? overrideLocked : adminRegLocked;
+    const cleanKey = masterKeyInput.trim();
+    if (cleanKey.length > 0 && cleanKey.length < 4) {
       setKeySaveMessage('Error: Master Key must be at least 4 characters long.');
       return;
     }
-    const cleanKey = masterKey.trim();
-    const targetLocked = overrideLocked !== undefined ? overrideLocked : adminRegLocked;
-    localStorage.setItem('bookskonnect_admin_key', cleanKey);
-    localStorage.setItem('bookskonnect_admin_reg_locked', String(targetLocked));
     try {
-      await fetch('/api/admin/key', {
+      const res = await apiFetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newKey: cleanKey, locked: targetLocked })
+        body: JSON.stringify({
+          ...(cleanKey ? { newKey: cleanKey } : {}),
+          locked: targetLocked
+        })
       });
-    } catch (err) {}
-    setKeySaveMessage(`Security settings updated successfully!`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        setKeySaveMessage(`Error: ${data.error || 'Failed to update security settings.'}`);
+        return;
+      }
+      setAdminRegLocked(data.locked);
+      setMasterKeyInput('');
+      setKeySaveMessage('Security settings updated successfully!');
+    } catch (err) {
+      setKeySaveMessage('Error: Network error updating security settings.');
+    }
     setTimeout(() => setKeySaveMessage(''), 4000);
   };
 
   const handleToggleAdminLock = (newLockedValue: boolean) => {
-    setAdminRegLocked(newLockedValue);
     handleSaveMasterKey(newLockedValue);
+  };
+
+  const handleChangeOwnPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordChangeError('');
+    setPasswordChangeMessage('');
+    if (newPasswordInput.length < 6) {
+      setPasswordChangeError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPasswordInput !== confirmNewPasswordInput) {
+      setPasswordChangeError('New password and confirmation do not match.');
+      return;
+    }
+    const result = await changePassword(currentPasswordInput, newPasswordInput);
+    if (!result.success) {
+      setPasswordChangeError(result.error || 'Failed to change password.');
+      return;
+    }
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmNewPasswordInput('');
+    setPasswordChangeMessage('Password updated successfully!');
+    setTimeout(() => setPasswordChangeMessage(''), 4000);
   };
   
   // User Search & Filter
@@ -209,6 +248,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState<Role>('Senior CPA');
   const [newUserError, setNewUserError] = useState('');
+  const [newUserTempPassword, setNewUserTempPassword] = useState('');
 
   // Task Search
   const [taskSearch, setTaskSearch] = useState('');
@@ -233,7 +273,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     t.creator.name.toLowerCase().includes(taskSearch.toLowerCase())
   );
 
-  const handleAddUserSubmit = (e: React.FormEvent) => {
+  const handleAddUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setNewUserError('');
 
@@ -247,17 +287,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
-    const newUser: User = {
-      id: Date.now(),
-      name: newName.trim(),
-      email: newEmail.trim(),
-      role: newRole,
-      status: 'APPROVED',
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newName)}`
-    };
+    const result = await onAddUser(newName.trim(), newEmail.trim(), newRole);
+    if (!result.success) {
+      setNewUserError(result.error || 'Failed to create user.');
+      return;
+    }
 
-    onAddUser(newUser);
-    setShowAddUserModal(false);
+    setNewUserTempPassword(result.tempPassword || '');
     setNewName('');
     setNewEmail('');
     setNewRole('Senior CPA');
@@ -892,46 +928,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Security Guard Controls */}
+            {/* Change My Password */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">Two-Factor Authentication (2FA)</h3>
-                  <p className="text-xs text-slate-500">Require OTP verification on user sign-in</p>
+                  <h3 className="font-extrabold text-sm text-slate-900">Change My Password</h3>
+                  <p className="text-xs text-slate-500">Update the password for your own account ({currentUser.email})</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+              <form onSubmit={handleChangeOwnPassword} className="space-y-2.5">
+                {passwordChangeError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
+                    {passwordChangeError}
+                  </div>
+                )}
                 <div>
-                  <div className="text-xs font-bold text-slate-800">Mandatory 2FA OTP Security</div>
-                  <div className="text-[10px] text-slate-500">Require 6-digit security code for all team accounts</div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Current Password</label>
+                  <input
+                    type="password"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Confirm New</label>
+                    <input
+                      type="password"
+                      value={confirmNewPasswordInput}
+                      onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-indigo-500"
+                    />
+                  </div>
                 </div>
                 <button
-                  onClick={() => setRequire2FA(!require2FA)}
-                  className={`w-12 h-6 flex items-center rounded-full p-1 transition cursor-pointer ${
-                    require2FA ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'
-                  }`}
+                  type="submit"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
                 >
-                  <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                  Update Password
                 </button>
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">Auto Workstation Lock Timeout</label>
-                <select
-                  value={sessionTimeout}
-                  onChange={(e) => setSessionTimeout(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
-                >
-                  <option value="15">15 Minutes of Inactivity</option>
-                  <option value="30">30 Minutes of Inactivity</option>
-                  <option value="60">60 Minutes of Inactivity</option>
-                  <option value="NEVER">Never (Manual Lock Only)</option>
-                </select>
-              </div>
+                {passwordChangeMessage && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold text-center">
+                    {passwordChangeMessage}
+                  </div>
+                )}
+              </form>
             </div>
 
             {/* Master Admin Registration Key Security */}
@@ -977,24 +1032,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               {!adminRegLocked && (
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700">Custom Admin Master Passcode</label>
+                  <label className="block text-xs font-bold text-slate-700">Set New Admin Master Passcode</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type={showMasterKey ? 'text' : 'password'}
-                      value={masterKey}
-                      onChange={(e) => setMasterKey(e.target.value)}
-                      placeholder="Enter new master key..."
+                      type="password"
+                      value={masterKeyInput}
+                      onChange={(e) => setMasterKeyInput(e.target.value)}
+                      placeholder="Leave blank to keep the current key"
                       className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-500"
                     />
-                    <button
-                      onClick={() => setShowMasterKey(!showMasterKey)}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                    >
-                      {showMasterKey ? 'Hide' : 'Show'}
-                    </button>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    New users attempting to self-register with System Administrator authority must supply this exact passcode.
+                    For security, the current key is never displayed or sent to the browser. Enter a new one here to rotate it, or leave this blank and just use the lock toggle above.
                   </p>
                   <button
                     onClick={() => handleSaveMasterKey()}
@@ -1011,53 +1060,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   keySaveMessage.startsWith('Error') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 }`}>
                   {keySaveMessage}
-                </div>
-              )}
-            </div>
-
-            {/* Master Admin PIN Security */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">Master Administrative Security PIN</h3>
-                  <p className="text-xs text-slate-500">Authorization PIN for high-privilege actions</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700">Current Security PIN</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type={showAdminPin ? 'text' : 'password'}
-                    value={adminPin}
-                    onChange={(e) => setAdminPin(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none"
-                  />
-                  <button
-                    onClick={() => setShowAdminPin(!showAdminPin)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                  >
-                    {showAdminPin ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setPinChangeMessage('Security PIN updated successfully!');
-                  setTimeout(() => setPinChangeMessage(''), 3000);
-                }}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
-              >
-                Save Security Settings
-              </button>
-
-              {pinChangeMessage && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold text-center">
-                  {pinChangeMessage}
                 </div>
               )}
             </div>
@@ -1124,6 +1126,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Tax Compliance Calendar (Deadlines) Management */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">Tax Compliance Calendar (Deadlines)</h3>
+                    <p className="text-xs text-slate-500">Feeds the ticker banner at the top of the app</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold bg-amber-50 text-amber-700 px-3 py-1 rounded-full border border-amber-200">
+                  {deadlines.length} Deadlines
+                </span>
+              </div>
+
+              <DeadlineManager
+                deadlines={deadlines}
+                onAdd={onAddDeadline}
+                onUpdate={onUpdateDeadline}
+                onDelete={onDeleteDeadline}
+              />
             </div>
 
           </div>
@@ -1193,76 +1220,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <span>Add User / Team Member</span>
               </h3>
               <button 
-                onClick={() => setShowAddUserModal(false)}
+                onClick={() => { setShowAddUserModal(false); setNewUserTempPassword(''); setNewUserError(''); }}
                 className="p-1 text-slate-400 hover:text-slate-700 rounded-full cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {newUserError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
-                {newUserError}
+            {newUserTempPassword ? (
+              <div className="space-y-3">
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-2">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Account created successfully
+                  </div>
+                  <p>Share this one-time temporary password with the new team member securely (not over the team feed). They should change it immediately after signing in via Admin Hub → Security → Change My Password.</p>
+                  <div className="bg-white border border-emerald-300 rounded-lg px-3 py-2 font-mono text-sm font-bold text-slate-900 select-all">
+                    {newUserTempPassword}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowAddUserModal(false); setNewUserTempPassword(''); }}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Done
+                </button>
               </div>
+            ) : (
+              <>
+                {newUserError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                    {newUserError}
+                  </div>
+                )}
+
+                <form onSubmit={handleAddUserSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Full Name & Title</label>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Alex Morgan, CPA"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="alex.m@gmail.com"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Role</label>
+                    <select
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value as Role)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="System Administrator">System Administrator</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Senior CPA">Senior CPA</option>
+                      <option value="Staff Auditor">Staff Auditor</option>
+                      <option value="Tax Specialist">Tax Specialist</option>
+                      <option value="Accounting Associate">Accounting Associate</option>
+                      <option value="Admin Officer">Admin Officer</option>
+                      <option value="Bookkeeper">Bookkeeper</option>
+                    </select>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500">
+                    A secure temporary password will be generated and shown once on the next screen -- there's no need to set one here.
+                  </p>
+
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserModal(false)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                </form>
+              </>
             )}
-
-            <form onSubmit={handleAddUserSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Full Name & Title</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Alex Morgan, CPA"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="alex.m@gmail.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Role</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as Role)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  <option value="System Administrator">System Administrator</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Senior CPA">Senior CPA</option>
-                  <option value="Staff Auditor">Staff Auditor</option>
-                  <option value="Tax Specialist">Tax Specialist</option>
-                  <option value="Accounting Associate">Accounting Associate</option>
-                  <option value="Admin Officer">Admin Officer</option>
-                  <option value="Bookkeeper">Bookkeeper</option>
-                </select>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddUserModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
-                >
-                  Create Account
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

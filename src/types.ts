@@ -10,7 +10,6 @@ export interface User {
   email: string;
   status?: UserStatus;
   createdAt?: string;
-  adminKey?: string;
 }
 
 export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING_REVIEW' | 'DONE';
