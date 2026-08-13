@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { apiFetch } from '../utils/apiFetch';
 import { 
   Client, 
   Task, 
@@ -167,7 +166,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     setCopiedEmail(false);
 
     try {
-      const response = await apiFetch('/api/gemini/assist', {
+      const response = await fetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

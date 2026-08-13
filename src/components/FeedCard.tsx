@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Task, TaskStatus, User } from '../types';
-import { apiFetch } from '../utils/apiFetch';
 import { 
   Clock, 
   Flag, 
@@ -72,7 +71,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({
 
     setAiStrategyLoading(true);
     try {
-      const response = await apiFetch('/api/gemini/assist', {
+      const response = await fetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

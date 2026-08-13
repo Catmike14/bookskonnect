@@ -1,6 +1,5 @@
 import React from 'react';
 import { User } from '../types';
-import { changePassword } from '../utils/authClient';
 import { 
   Layers, 
   Search, 
@@ -19,10 +18,7 @@ import {
   LogOut,
   UserCheck,
   ShieldCheck,
-  Database,
-  KeyRound,
-  X,
-  Loader2
+  Database
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -65,39 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   aiEnabled = true,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = React.useState(false);
-  const [showChangePassword, setShowChangePassword] = React.useState(false);
-  const [currentPw, setCurrentPw] = React.useState('');
-  const [newPw, setNewPw] = React.useState('');
-  const [confirmPw, setConfirmPw] = React.useState('');
-  const [pwError, setPwError] = React.useState('');
-  const [pwSuccess, setPwSuccess] = React.useState('');
-  const [pwSubmitting, setPwSubmitting] = React.useState(false);
   const totalDueAlerts = overdueCount + approachingCount;
-
-  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPwError('');
-    setPwSuccess('');
-    if (newPw.length < 6) {
-      setPwError('New password must be at least 6 characters long.');
-      return;
-    }
-    if (newPw !== confirmPw) {
-      setPwError('New password and confirmation do not match.');
-      return;
-    }
-    setPwSubmitting(true);
-    const result = await changePassword(currentPw, newPw);
-    setPwSubmitting(false);
-    if (!result.success) {
-      setPwError(result.error || 'Failed to change password.');
-      return;
-    }
-    setPwSuccess('Password updated successfully!');
-    setCurrentPw('');
-    setNewPw('');
-    setConfirmPw('');
-  };
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
@@ -324,20 +288,6 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {/* Quick Auth Buttons */}
                 <div className="space-y-1 mb-2 pb-2 border-b border-slate-100">
-                  {currentUser && (
-                    <button
-                      onClick={() => {
-                        setShowUserDropdown(false);
-                        setPwError('');
-                        setPwSuccess('');
-                        setShowChangePassword(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition cursor-pointer"
-                    >
-                      <KeyRound className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Change Password</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       setShowUserDropdown(false);
@@ -383,79 +333,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
       </div>
-
-      {/* Change Password Modal */}
-      {showChangePassword && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-          onClick={() => setShowChangePassword(false)}
-        >
-          <div
-            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-emerald-600" />
-                Change Password
-              </h3>
-              <button
-                onClick={() => setShowChangePassword(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-full cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleChangePasswordSubmit} className="space-y-3">
-              {pwError && (
-                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold">
-                  {pwError}
-                </div>
-              )}
-              {pwSuccess && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold">
-                  {pwSuccess}
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Current Password</label>
-                <input
-                  type="password"
-                  value={currentPw}
-                  onChange={(e) => setCurrentPw(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
-                <input
-                  type="password"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={pwSubmitting}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2"
-              >
-                {pwSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Update Password</span>}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
