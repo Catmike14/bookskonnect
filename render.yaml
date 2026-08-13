@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: bookskonnect
+    runtime: node
+    plan: starter
+    region: singapore
+    branch: main
+    buildCommand: npm ci && npm run build
+    # Runs the already-built dist/server.cjs directly rather than `npm start`,
+    # which would otherwise re-trigger the `prestart` build hook a second
+    # time on every restart for no reason.
+    startCommand: node dist/server.cjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Secrets are intentionally not set here (sync: false) -- set the
+      # real values in the Render dashboard under this service's
+      # Environment tab instead of committing them to the repo.
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

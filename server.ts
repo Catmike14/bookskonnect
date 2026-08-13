@@ -464,6 +464,40 @@ app.post("/api/auth/signup", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await authBackend.findUserByEmail(normalizedEmail);
+
+    // Accounts that existed before real authentication was added (e.g. from
+    // the old fake-login system, or seeded via TEAM_USERS) have no password
+    // hash at all -- login correctly rejects those, but without this,
+    // signup would too, permanently locking that person out of an identity
+    // they already own. If the existing row has no password set yet, treat
+    // this as "claiming" that account by setting its first real password,
+    // rather than as a brand new duplicate signup.
+    if (existing && !existing.passwordHash) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      const updates: { passwordHash: string; role?: string; status?: string } = { passwordHash };
+
+      // Only ever elevates, never downgrades: if they're claiming with a
+      // valid admin key, grant admin; otherwise the account keeps whatever
+      // role/status it already had (commonly already an admin from the old
+      // system, which this preserves as-is).
+      const wantsAdminClaim = role === "System Administrator" && !publicAdminRegLocked;
+      if (wantsAdminClaim) {
+        const attempt = typeof adminKeyAttempt === "string" ? adminKeyAttempt.trim() : "";
+        const keyOk = attempt.length > 0 && (await bcrypt.compare(attempt, systemAdminMasterKeyHash));
+        if (keyOk) {
+          updates.role = "System Administrator";
+          updates.status = "APPROVED";
+        }
+      }
+
+      await authBackend.updateUser(existing.id, updates);
+      const claimed = await authBackend.findUserById(existing.id);
+      const token = await authBackend.createSession(claimed!.id);
+      setSessionCookie(res, token);
+      issueCsrfToken(res);
+      return res.json({ success: true, user: sanitizeUser(claimed!), claimed: true });
+    }
+
     if (existing) {
       return res.status(409).json({ success: false, error: "An account with this email already exists. Please log in." });
     }
@@ -531,9 +565,22 @@ app.post("/api/auth/login", async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await authBackend.findUserByEmail(normalizedEmail);
 
-    // Deliberately generic error -- never reveal whether the email exists.
+    // Deliberately generic error for wrong-password cases -- never reveal
+    // whether an email exists via a differently-worded message. This one
+    // case is an intentional exception: an account with no password hash
+    // at all is a pre-migration account (from before real auth existed)
+    // that needs to be claimed via signup, not a wrong-password situation --
+    // telling them that directly is the difference between "locked out
+    // permanently" and "oh, I need to use Create Account instead."
+    if (user && !user.passwordHash) {
+      return res.status(401).json({
+        success: false,
+        error: "This account hasn't set a password yet (it predates password-based login). Use \"Create Account\" with this same email to set one -- your existing role will be preserved.",
+      });
+    }
+
     const invalidCreds = { success: false, error: "Invalid email or password." };
-    if (!user || !user.passwordHash) {
+    if (!user) {
       return res.status(401).json(invalidCreds);
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
