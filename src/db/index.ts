@@ -192,8 +192,33 @@ export async function ensureTablesExist() {
       name TEXT NOT NULL,
       deadline_date TEXT NOT NULL,
       description TEXT NOT NULL,
-      status TEXT NOT NULL
+      status TEXT NOT NULL,
+      client_id INTEGER
     );
   `;
+  await sql`
+    ALTER TABLE tax_deadlines ADD COLUMN IF NOT EXISTS client_id INTEGER;
+  `;
+  // Foreign key + ON DELETE SET NULL so deleting a client doesn't leave
+  // deadline rows pointing at a client_id that no longer exists -- it just
+  // un-links them back to firm-wide instead. Guarded because adding a
+  // constraint that already exists (from a previous successful run of this
+  // migration) throws, and because a database with orphaned client_id
+  // values from before this constraint existed would also throw; either
+  // way that's logged rather than allowed to crash startup, same pattern
+  // as the users.email unique index above.
+  try {
+    await sql`
+      ALTER TABLE tax_deadlines
+      ADD CONSTRAINT tax_deadlines_client_id_fkey
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL;
+    `;
+  } catch (err: any) {
+    // Expected/harmless on every run after the first (constraint already
+    // exists); only worth logging if it's something else.
+    if (!String(err.message).includes("already exists")) {
+      console.error("Could not add tax_deadlines.client_id foreign key:", err.message);
+    }
+  }
 }
 

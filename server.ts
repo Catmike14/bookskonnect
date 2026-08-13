@@ -1394,6 +1394,28 @@ app.post("/api/reset", requireAdmin, async (_req, res) => {
 });
 
 async function startServer() {
+  // Run schema migration ONCE here, before accepting any traffic, rather
+  // than relying on /api/bootstrap or /api/db/status happening to be the
+  // first request. Those were the only two places this used to run, so a
+  // client hitting /api/auth/signup (or anything else DB-backed) first --
+  // entirely plausible, e.g. a direct API call, a slow bootstrap request
+  // racing a fast signup, or an existing pre-migration database -- would
+  // query columns/tables that don't exist yet and crash with exactly the
+  // kind of "column password_hash does not exist" error this caused.
+  if (process.env.DATABASE_URL) {
+    try {
+      const { ensureTablesExist } = await import("./src/db/index");
+      await ensureTablesExist();
+      console.log("[Accounting Portal] Database schema verified/migrated.");
+    } catch (err: any) {
+      console.error(
+        "[Accounting Portal] Database migration failed at startup -- the app will still start, " +
+        "but DB-backed routes will likely error until this is resolved:",
+        err.message
+      );
+    }
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
