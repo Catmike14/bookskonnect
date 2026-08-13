@@ -10,7 +10,6 @@ export interface User {
   email: string;
   status?: UserStatus;
   createdAt?: string;
-  adminKey?: string;
 }
 
 export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING_REVIEW' | 'DONE';
@@ -38,7 +37,10 @@ export const DEFAULT_TAX_CATEGORIES: string[] = [
   'Payroll & SSS/HDMF',
   'Financial Audit',
   'Business Permit Renewal',
-  'General Advisory'
+  'General Advisory',
+  'Final Withholding 1601-FQ',
+  'Individual Income Tax 1701',
+  'Annual Registration 0605'
 ];
 
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL';
@@ -172,4 +174,6 @@ export interface TaxDeadline {
   deadlineDate: string;
   description: string;
   status: 'Upcoming' | 'Urgent' | 'Completed';
+  /** null/undefined = firm-wide deadline, not tied to a specific client */
+  clientId?: number | null;
 }

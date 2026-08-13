@@ -35,6 +35,17 @@ export function getDb() {
   return dbInstance;
 }
 
+/** Cleanly closes the Postgres connection pool. Used on graceful shutdown
+ * (SIGTERM/SIGINT) so in-flight queries get a chance to finish and the
+ * platform's health check doesn't see connection errors during a deploy. */
+export async function closeDb() {
+  if (sqlClient) {
+    await sqlClient.end({ timeout: 5 });
+    sqlClient = null;
+    dbInstance = null;
+  }
+}
+
 export async function ensureTablesExist() {
   const sql = getSqlClient();
   await sql`
@@ -50,6 +61,51 @@ export async function ensureTablesExist() {
   `;
   await sql`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'APPROVED';
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id SERIAL PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP NOT NULL
+    );
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
+  `;
+  // Enforce one account per email at the database level, not just in
+  // application code -- without this, a race between two concurrent signup
+  // requests for the same email could create two accounts (whichever one
+  // the login lookup happens to return first "wins", silently locking the
+  // other out). Wrapped in try/catch because an index creation can fail if
+  // a database from before this constraint existed already has duplicate
+  // emails in it; that's logged rather than allowed to crash startup, since
+  // this is a repair step in an already-broken state that should be fixed
+  // manually rather than take the whole app down.
+  try {
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users(LOWER(email));
+    `;
+  } catch (err: any) {
+    console.error(
+      "Could not enforce a unique index on users.email -- there are likely duplicate emails already in the table. " +
+      "Login will use whichever matching row comes back first until this is resolved manually. Error:",
+      err.message
+    );
+  }
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    );
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS clients (

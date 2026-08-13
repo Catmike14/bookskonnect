@@ -5,8 +5,31 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   role: text('role').notNull(),
   avatar: text('avatar').notNull(),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   status: text('status').default('APPROVED').notNull(),
+  // bcrypt hash. Nullable only to tolerate pre-existing rows created before
+  // this column existed; the app layer always requires it for new signups
+  // and rejects login for accounts that don't have one.
+  passwordHash: text('password_hash'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Server-side session tokens. A session token is an opaque random value
+// handed to the browser as an httpOnly cookie; the token itself carries no
+// identity or role information, so it can't be forged or edited client-side.
+export const sessions = pgTable('sessions', {
+  id: serial('id').primaryKey(),
+  token: text('token').notNull().unique(),
+  userId: integer('user_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+// Custom task/tax categories, previously kept in a plain in-memory array on
+// the server (lost on every restart/redeploy). Persisted properly now.
+export const taskCategories = pgTable('task_categories', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -63,4 +86,10 @@ export const taxDeadlines = pgTable('tax_deadlines', {
   deadlineDate: text('deadline_date').notNull(),
   description: text('description').notNull(),
   status: text('status').notNull(),
+  // Nullable: null means a firm-wide deadline not tied to one client (e.g.
+  // an internal filing). Not a hard foreign key at the Drizzle schema level
+  // (see the raw-SQL migration in db/index.ts for the actual FK with
+  // ON DELETE SET NULL, so a deleted client doesn't leave orphaned rows
+  // pointing at nothing).
+  clientId: integer('client_id'),
 });

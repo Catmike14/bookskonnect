@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   Client, 
   Task, 
+  TaxDeadline,
   COMMON_TAX_TYPES, 
   ENTITY_TYPES,
   TAX_REGISTRATION_TYPES, 
@@ -38,19 +39,23 @@ import {
 interface ClientDirectoryProps {
   clients: Client[];
   tasks: Task[];
+  deadlines?: TaxDeadline[];
   onSelectClientForBroadcast: (clientName: string) => void;
   onAddClient: (client: Omit<Client, 'id'>) => void;
   onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus'], fullClientData?: Partial<Client>) => void;
   onDeleteClient?: (clientId: number) => void;
+  onGenerateDeadlines?: (clientId?: number) => { deadlinesCreated: number; tasksCreated: number; clientsCovered: number };
 }
 
 export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
   clients,
   tasks,
+  deadlines = [],
   onSelectClientForBroadcast,
   onAddClient,
   onUpdateClientNotes,
   onDeleteClient,
+  onGenerateDeadlines,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
   const [selectedTaxFilter, setSelectedTaxFilter] = useState<string>('ALL');
@@ -819,10 +824,12 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       <ClientDetailModal
         client={selectedDetailClient}
         tasks={tasks}
+        deadlines={deadlines}
         onClose={() => setSelectedDetailClient(null)}
         onUpdateClientNotes={onUpdateClientNotes}
         onSelectForBroadcast={onSelectClientForBroadcast}
         onDeleteClient={onDeleteClient}
+        onGenerateDeadlines={onGenerateDeadlines}
       />
 
     </div>

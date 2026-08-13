@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, TaxCategory, Priority, Task, DEFAULT_TAX_CATEGORIES } from '../types';
 import { INITIAL_CLIENTS } from '../data/initialData';
+import { apiFetch } from '../utils/apiFetch';
 import { 
   Send, 
   Sparkles, 
@@ -48,7 +49,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   const [customCategoryInput, setCustomCategoryInput] = useState('');
 
   useEffect(() => {
-    fetch('/api/categories')
+    apiFetch('/api/categories')
       .then(r => r.json())
       .then(data => {
         if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
@@ -66,7 +67,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
       const updated = [...categories, newCat];
       setCategories(updated);
       localStorage.setItem('bk_task_categories', JSON.stringify(updated));
-      fetch('/api/categories', {
+      apiFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCat })
@@ -156,7 +157,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
     setAiError(null);
 
     try {
-      const response = await fetch('/api/gemini/assist', {
+      const response = await apiFetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

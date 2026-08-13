@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Task } from '../types';
+import { apiFetch } from '../utils/apiFetch';
 import { 
   Sparkles, 
   Send, 
@@ -39,7 +40,7 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
     setResponse(null);
 
     try {
-      const res = await fetch('/api/gemini/assist', {
+      const res = await apiFetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

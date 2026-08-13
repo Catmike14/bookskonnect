@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../utils/apiFetch';
 import { 
   Client, 
   Task, 
+  TaxDeadline,
   COMMON_TAX_TYPES, 
   ENTITY_TYPES,
   TAX_REGISTRATION_TYPES, 
@@ -33,27 +35,30 @@ import {
   Shield,
   MapPin
 } from 'lucide-react';
-
 interface ClientDetailModalProps {
   client: Client | null;
   tasks: Task[];
+  deadlines?: TaxDeadline[];
   onClose: () => void;
   onUpdateClientNotes: (clientId: number, newNotes: string, newHealth?: Client['healthStatus'], fullClientData?: Partial<Client>) => void;
   onSelectForBroadcast: (clientName: string) => void;
   onDeleteClient?: (clientId: number) => void;
+  onGenerateDeadlines?: (clientId?: number) => { deadlinesCreated: number; tasksCreated: number; clientsCovered: number };
 }
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   client,
   tasks,
+  deadlines = [],
   onClose,
   onUpdateClientNotes,
   onSelectForBroadcast,
   onDeleteClient,
+  onGenerateDeadlines,
 }) => {
   if (!client) return null;
 
-  const [activeTab, setActiveTab] = useState<'TASKS' | 'INFO' | 'EMAIL_GEN'>('TASKS');
+  const [activeTab, setActiveTab] = useState<'TASKS' | 'DEADLINES' | 'INFO' | 'EMAIL_GEN'>('TASKS');
 
   // Form state initialized from client props
   const [formData, setFormData] = useState({
@@ -133,6 +138,8 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const clientTasks = tasks.filter(t => t.clientName.toLowerCase() === client.name.toLowerCase());
   const flaggedTasks = clientTasks.filter(t => t.flagged);
   const openTasks = clientTasks.filter(t => t.status !== 'DONE');
+  const clientDeadlines = deadlines.filter(d => d.clientId === client.id);
+  const [generateMsg, setGenerateMsg] = useState('');
 
   const toggleApplicableTax = (taxName: string) => {
     setFormData(prev => {
@@ -166,7 +173,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     setCopiedEmail(false);
 
     try {
-      const response = await fetch('/api/gemini/assist', {
+      const response = await apiFetch('/api/gemini/assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,6 +313,18 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('DEADLINES')}
+            className={`py-3.5 border-b-2 transition cursor-pointer flex items-center gap-2 ${
+              activeTab === 'DEADLINES'
+                ? 'border-emerald-600 text-emerald-950 font-extrabold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Calendar className="w-4 h-4 text-amber-600" />
+            <span>Compliance Deadlines ({clientDeadlines.filter(d => d.status !== 'Completed').length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('INFO')}
             className={`py-3.5 border-b-2 transition cursor-pointer flex items-center gap-2 ${
               activeTab === 'INFO'
@@ -390,6 +409,79 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           <span><strong>Roadblock:</strong> {t.flagReason}</span>
                         </div>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: COMPLIANCE DEADLINES (linked to this client) */}
+          {activeTab === 'DEADLINES' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Upcoming filings for {client.name}
+                </h3>
+                {onGenerateDeadlines && (
+                  <button
+                    onClick={() => {
+                      const result = onGenerateDeadlines(client.id);
+                      setGenerateMsg(
+                        result.deadlinesCreated === 0 && result.tasksCreated === 0
+                          ? 'Everything for the next 3 months is already on the calendar -- nothing new to add.'
+                          : `Added ${result.deadlinesCreated} deadline(s) and ${result.tasksCreated} task(s) for the next 3 months.`
+                      );
+                      setTimeout(() => setGenerateMsg(''), 6000);
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Generate from BIR Calendar</span>
+                  </button>
+                )}
+              </div>
+
+              {generateMsg && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold">
+                  {generateMsg}
+                </div>
+              )}
+
+              {client.applicableTaxes && client.applicableTaxes.length > 0 ? (
+                <p className="text-[11px] text-slate-500">
+                  Based on this client's registered tax types ({client.applicableTaxes.join(', ')}). Local Business Tax and SSS/PhilHealth/Pag-IBIG deadlines vary by LGU/employer number and aren't auto-generated -- add those manually from Admin Hub.
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                  This client has no registered tax types yet -- add some under the Tax Compliance & Profile tab so deadlines can be generated automatically.
+                </p>
+              )}
+
+              {clientDeadlines.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-500">
+                  No deadlines recorded yet for this client.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...clientDeadlines].sort((a, b) => a.deadlineDate.localeCompare(b.deadlineDate)).map((d) => (
+                    <div
+                      key={d.id}
+                      className={`bg-white p-3.5 rounded-2xl border shadow-2xs flex items-center justify-between gap-3 ${
+                        d.status === 'Completed' ? 'border-slate-200 opacity-60' : 'border-slate-200/80'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900">{d.formCode} — {d.name}</div>
+                        {d.description && <div className="text-[10px] text-slate-500 mt-0.5">{d.description}</div>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded-lg ${
+                          d.status === 'Completed' ? 'bg-slate-100 text-slate-500' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {d.status === 'Completed' ? 'Filed' : `Due ${d.deadlineDate}`}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
