@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Task } from '../types';
-import { Bell, AlertTriangle, AlertCircle, Calendar, X, ExternalLink, CheckCircle } from 'lucide-react';
+import { Bell, AlertCircle, Calendar, X, ExternalLink, CheckCircle } from 'lucide-react';
 
 export interface ToastAlert {
   id: string;
@@ -9,6 +8,12 @@ export interface ToastAlert {
   type: 'overdue' | 'approaching' | 'info' | 'success';
   taskId?: number;
   dateStr?: string;
+  /** If set, this toast auto-dismisses after this many milliseconds.
+   * Intended for ephemeral status confirmations (signed in, signed out,
+   * access restricted) that are only useful for a few seconds -- unlike
+   * task deadline reminders, which represent something the person may
+   * still need to act on and should stay until they dismiss it themselves. */
+  autoDismissMs?: number;
 }
 
 interface ToastNotificationProps {
@@ -55,72 +60,88 @@ export const ToastNotificationContainer: React.FC<ToastNotificationProps> = ({
       )}
 
       {/* Stack of Toast Banners */}
-      {toasts.map((toast) => {
-        const isOverdue = toast.type === 'overdue';
-        const isApproaching = toast.type === 'approaching';
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} onSelectTask={onSelectTask} />
+      ))}
 
-        return (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto rounded-2xl p-4 shadow-2xl border transition-all duration-200 animate-in fade-in slide-in-from-bottom-3 ${
-              isOverdue
-                ? 'bg-red-950/95 text-red-100 border-red-500/50 shadow-red-950/40'
-                : isApproaching
-                ? 'bg-amber-950/95 text-amber-100 border-amber-500/50 shadow-amber-950/40'
-                : 'bg-slate-900/95 text-white border-slate-700 shadow-slate-950/40'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                {isOverdue ? (
-                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                ) : isApproaching ? (
-                  <Calendar className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                ) : (
-                  <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                )}
+    </div>
+  );
+};
 
-                <div>
-                  <h4 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                    <span>{toast.title}</span>
-                    {toast.dateStr && (
-                      <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-black/30 font-semibold">
-                        {toast.dateStr}
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-xs text-slate-200/90 mt-1 leading-relaxed">
-                    {toast.message}
-                  </p>
-                </div>
-              </div>
+const ToastItem: React.FC<{
+  toast: ToastAlert;
+  onDismiss: (id: string) => void;
+  onSelectTask?: (taskId: number) => void;
+}> = ({ toast, onDismiss, onSelectTask }) => {
+  const isOverdue = toast.type === 'overdue';
+  const isApproaching = toast.type === 'approaching';
 
-              <button
-                onClick={() => onDismiss(toast.id)}
-                className="text-slate-400 hover:text-white transition p-1 cursor-pointer shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+  // Own this toast's auto-dismiss timer independently so a fresh toast
+  // doesn't have its countdown reset just because a sibling toast re-rendered.
+  useEffect(() => {
+    if (!toast.autoDismissMs) return;
+    const timer = setTimeout(() => onDismiss(toast.id), toast.autoDismissMs);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast.id, toast.autoDismissMs]);
 
-            {toast.taskId && onSelectTask && (
-              <div className="mt-2.5 pt-2 border-t border-white/10 flex justify-end">
-                <button
-                  onClick={() => {
-                    onSelectTask(toast.taskId!);
-                    onDismiss(toast.id);
-                  }}
-                  className="text-[11px] font-bold text-white hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Filter this task</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
-              </div>
-            )}
+  return (
+    <div
+      className={`pointer-events-auto rounded-2xl p-4 shadow-2xl border transition-all duration-200 animate-in fade-in slide-in-from-bottom-3 ${
+        isOverdue
+          ? 'bg-red-950/95 text-red-100 border-red-500/50 shadow-red-950/40'
+          : isApproaching
+          ? 'bg-amber-950/95 text-amber-100 border-amber-500/50 shadow-amber-950/40'
+          : 'bg-slate-900/95 text-white border-slate-700 shadow-slate-950/40'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          {isOverdue ? (
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          ) : isApproaching ? (
+            <Calendar className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          ) : (
+            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          )}
+
+          <div>
+            <h4 className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+              <span>{toast.title}</span>
+              {toast.dateStr && (
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-black/30 font-semibold">
+                  {toast.dateStr}
+                </span>
+              )}
+            </h4>
+            <p className="text-xs text-slate-200/90 mt-1 leading-relaxed">
+              {toast.message}
+            </p>
           </div>
-        );
-      })}
+        </div>
 
+        <button
+          onClick={() => onDismiss(toast.id)}
+          className="text-slate-400 hover:text-white transition p-1 cursor-pointer shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {toast.taskId && onSelectTask && (
+        <div className="mt-2.5 pt-2 border-t border-white/10 flex justify-end">
+          <button
+            onClick={() => {
+              onSelectTask(toast.taskId!);
+              onDismiss(toast.id);
+            }}
+            className="text-[11px] font-bold text-white hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>Filter this task</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

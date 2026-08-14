@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, TaxCategory, Priority, Task, DEFAULT_TAX_CATEGORIES } from '../types';
+import { User, Priority, Task, DEFAULT_TAX_CATEGORIES } from '../types';
 import { INITIAL_CLIENTS } from '../data/initialData';
 import { apiFetch } from '../utils/apiFetch';
 import { 
@@ -26,9 +26,18 @@ interface BroadcastFormProps {
   allUsers?: User[];
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => void;
   aiEnabled?: boolean;
+  /** Pre-selects this user as the assignee on mount -- used by "Assign
+   * Task" on a Team Directory card so it actually does what it says
+   * instead of just switching tabs with no assignee selected. */
+  defaultAssigneeId?: number | null;
+  /** Called once, right after defaultAssigneeId has been applied, so the
+   * parent can clear its pending value and a later fresh mount of this
+   * form (e.g. navigating away and back without clicking "Assign Task"
+   * again) doesn't silently reuse a stale pre-selection. */
+  onConsumedDefaultAssignee?: () => void;
 }
 
-export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask, aiEnabled = true }) => {
+export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask, aiEnabled = true, defaultAssigneeId, onConsumedDefaultAssignee }) => {
   const userList = allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []);
   const [clientName, setClientName] = useState('');
   const [customClient, setCustomClient] = useState('');
@@ -78,7 +87,14 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
     setIsAddingCustomCategory(false);
   };
   const [priority, setPriority] = useState<Priority>('NORMAL');
-  const [assigneeId, setAssigneeId] = useState<number>(currentUser?.id || (userList[0]?.id ?? 0));
+  const [assigneeId, setAssigneeId] = useState<number>(defaultAssigneeId ?? currentUser?.id ?? (userList[0]?.id ?? 0));
+
+  useEffect(() => {
+    if (defaultAssigneeId != null) {
+      onConsumedDefaultAssignee?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [dueDate, setDueDate] = useState<string>('');
   const [description, setDescription] = useState('');
   const [isFlagged, setIsFlagged] = useState(false);

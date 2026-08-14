@@ -11,13 +11,8 @@ import {
   ShieldAlert, 
   ChevronDown,
   Building2,
-  CheckCircle2,
   Bell,
-  Clock,
-  LogIn,
-  UserPlus,
   LogOut,
-  UserCheck,
   ShieldCheck,
   Database,
   KeyRound,
@@ -27,7 +22,6 @@ import {
 
 interface HeaderProps {
   currentUser: User | null;
-  onSelectUser: (user: User) => void;
   activeTab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN';
   setActiveTab: (tab: 'FEED' | 'CLIENTS' | 'ANALYTICS' | 'TEAM' | 'ADMIN') => void;
   searchQuery: string;
@@ -38,8 +32,6 @@ interface HeaderProps {
   overdueCount?: number;
   approachingCount?: number;
   onTriggerAlerts?: () => void;
-  allUsers?: User[];
-  onOpenAuthModal?: (mode?: 'LOGIN' | 'SIGNUP') => void;
   onLogout?: () => void;
   dbConnected?: boolean;
   aiEnabled?: boolean;
@@ -47,7 +39,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
-  onSelectUser,
   activeTab,
   setActiveTab,
   searchQuery,
@@ -58,8 +49,6 @@ export const Header: React.FC<HeaderProps> = ({
   overdueCount = 0,
   approachingCount = 0,
   onTriggerAlerts,
-  allUsers = [],
-  onOpenAuthModal,
   onLogout,
   dbConnected = false,
   aiEnabled = true,
@@ -229,6 +218,14 @@ export const Header: React.FC<HeaderProps> = ({
             >
               Team
             </button>
+            {currentUser?.role === 'System Administrator' && currentUser?.status === 'APPROVED' && (
+              <button
+                onClick={() => setActiveTab('ADMIN')}
+                className={`px-3 py-1.5 rounded-lg ${activeTab === 'ADMIN' ? 'bg-indigo-600 text-white shadow-xs' : 'text-indigo-700'}`}
+              >
+                Admin
+              </button>
+            )}
           </div>
 
           <div className="relative flex-1 md:w-64">
@@ -338,27 +335,6 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>Change Password</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      setShowUserDropdown(false);
-                      if (onOpenAuthModal) onOpenAuthModal('LOGIN');
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition cursor-pointer"
-                  >
-                    <LogIn className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Sign In to Account</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowUserDropdown(false);
-                      if (onOpenAuthModal) onOpenAuthModal('SIGNUP');
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition cursor-pointer"
-                  >
-                    <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Register New CPA Profile</span>
-                  </button>
                 </div>
 
                 {/* Logout Button */}

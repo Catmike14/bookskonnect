@@ -9,7 +9,6 @@ import {
   Database, 
   Trash2, 
   UserPlus, 
-  Edit3, 
   Download, 
   Upload, 
   RefreshCw, 
@@ -17,9 +16,6 @@ import {
   AlertTriangle, 
   Activity, 
   Search, 
-  Sliders, 
-  FileSpreadsheet, 
-  Building2, 
   Check, 
   X,
   Lock,
@@ -262,6 +258,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [resetPasswordSubmitting, setResetPasswordSubmitting] = useState(false);
 
   const [generateResultMsg, setGenerateResultMsg] = useState('');
+  const [restoreMsg, setRestoreMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   const handleConfirmResetPassword = async () => {
     if (!onResetUserPassword || !resetPasswordFor) return;
@@ -364,17 +361,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               if (result.usersSkipped) {
                 parts.push('users skipped (accounts now require real passwords -- use "Add User" instead)');
               }
-              alert(`Restore complete: ${parts.join(', ')}.`);
+              setRestoreMsg({ text: `Restore complete: ${parts.join(', ')}.`, isError: false });
             } else {
-              alert('Data restored successfully!');
+              setRestoreMsg({ text: 'Data restored successfully!', isError: false });
             }
           }
         } else {
-          alert('Invalid backup file format.');
+          setRestoreMsg({ text: 'Invalid backup file format.', isError: true });
         }
       } catch (err) {
-        alert('Failed to parse backup JSON file.');
+        setRestoreMsg({ text: 'Failed to parse backup JSON file.', isError: true });
       }
+      setTimeout(() => setRestoreMsg(null), 6000);
     };
     reader.readAsText(file);
   };
@@ -433,6 +431,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           </div>
         </div>
+
+        {restoreMsg && (
+          <div className={`mt-4 p-3 rounded-xl text-xs font-bold border ${
+            restoreMsg.isError
+              ? 'bg-red-950/60 border-red-500/40 text-red-200'
+              : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+          }`}>
+            {restoreMsg.text}
+          </div>
+        )}
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-indigo-900/60">

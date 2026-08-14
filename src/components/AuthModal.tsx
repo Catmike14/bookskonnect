@@ -352,7 +352,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full px-3 py-2 bg-white border border-emerald-300 focus:border-emerald-500 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none"
                   />
                   <p className="text-[10px] text-slate-600">
-                    Ask an existing System Administrator for the current master passcode. Entering the correct key grants System Administrator access immediately; an incorrect key registers a regular Bookkeeper account instead.
+                    Ask an existing System Administrator for the current master passcode. An incorrect or missing key will reject the signup entirely, so it's obvious right away rather than silently landing you in a lower-privilege role.
                   </p>
                 </div>
               )}

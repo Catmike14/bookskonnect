@@ -1,6 +1,6 @@
 import React from 'react';
 import { TaxDeadline, Client } from '../types';
-import { Calendar, AlertCircle, Clock, CheckCircle2, Building2 } from 'lucide-react';
+import { Calendar, AlertCircle, Clock, Building2 } from 'lucide-react';
 
 interface TaxDeadlineTickerProps {
   deadlines: TaxDeadline[];

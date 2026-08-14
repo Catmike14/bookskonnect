@@ -13,15 +13,9 @@ import {
 import { 
   X, 
   Building2, 
-  Mail, 
-  Phone, 
-  UserCheck, 
-  ShieldCheck, 
   AlertTriangle, 
   Clock, 
-  FileText, 
   Sparkles, 
-  Send, 
   CheckCircle2, 
   PlusCircle, 
   Copy, 
@@ -33,7 +27,7 @@ import {
   Building,
   User,
   Shield,
-  MapPin
+  Briefcase
 } from 'lucide-react';
 interface ClientDetailModalProps {
   client: Client | null;
@@ -524,6 +518,45 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                         </div>
                         <span className="truncate">{taxName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subscribed Retainer Services -- had full working state logic
+                  (toggleSubscribedService) and was even saved to the backend,
+                  but never actually had a UI section to interact with it. */}
+              <div className="bg-indigo-50/70 p-4 rounded-2xl border border-indigo-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-indigo-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-indigo-700" />
+                    Subscribed Retainer Services
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-200/70 text-indigo-900">
+                    {formData.subscribedServices.length} Selected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {COMMON_RETAINER_SERVICES.map((serviceName, idx) => {
+                    const isSelected = formData.subscribedServices.includes(serviceName);
+                    return (
+                      <label
+                        key={idx}
+                        onClick={() => toggleSubscribedService(serviceName)}
+                        className={`flex items-center gap-2 p-2 rounded-xl border font-semibold cursor-pointer transition select-none ${
+                          isSelected
+                            ? 'bg-indigo-700 text-white border-indigo-800'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-400'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
+                          isSelected ? 'bg-white text-indigo-800 border-white' : 'border-slate-300'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <span className="truncate">{serviceName}</span>
                       </label>
                     );
                   })}

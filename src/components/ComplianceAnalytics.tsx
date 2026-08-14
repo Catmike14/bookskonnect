@@ -23,7 +23,6 @@ import {
   Download,
   FileSpreadsheet,
   Timer,
-  UserCheck,
   Zap,
   TrendingUp
 } from 'lucide-react';

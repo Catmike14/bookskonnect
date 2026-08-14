@@ -6,12 +6,10 @@ import {
   Send, 
   Bot, 
   X, 
-  FileCheck, 
   HelpCircle, 
   Loader2, 
   Copy, 
   Check,
-  AlertCircle
 } from 'lucide-react';
 
 interface AICpaAssistantModalProps {

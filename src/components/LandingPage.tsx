@@ -376,7 +376,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         className="w-full bg-slate-950 border border-emerald-500/50 focus:border-emerald-400 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none"
                       />
                       <p className="text-[10px] text-slate-400">
-                        Ask an existing System Administrator for the current master key. The correct key grants System Administrator access immediately; a wrong one just registers a regular account.
+                        Ask an existing System Administrator for the current master key. An incorrect or missing key rejects the signup outright, so you'll know right away rather than silently ending up with a lower-privilege account.
                       </p>
                     </div>
                   )}

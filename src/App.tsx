@@ -6,7 +6,6 @@ import { Header } from './components/Header';
 import { TaxDeadlineTicker } from './components/TaxDeadlineTicker';
 import { BroadcastForm } from './components/BroadcastForm';
 import { FeedCard } from './components/FeedCard';
-import { AuthModal } from './components/AuthModal';
 import { LandingPage } from './components/LandingPage';
 import { ToastNotificationContainer, ToastAlert } from './components/ToastNotification';
 import { fetchCurrentUser, logout as authLogout } from './utils/authClient';
@@ -33,14 +32,8 @@ function TabLoadingFallback() {
 
 import { 
   Inbox, 
-  Filter, 
-  Layers, 
   RefreshCw, 
-  Sparkles, 
   ShieldAlert,
-  Building2,
-  CheckCircle2,
-  Bell
 } from 'lucide-react';
 
 export default function App() {
@@ -107,9 +100,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>('ALL');
+  const [pendingAssigneeId, setPendingAssigneeId] = useState<number | null>(null);
 
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastAlert[]>([]);
 
   // AI CPA Assistant & Gemini Features Enable/Disable State
@@ -397,14 +390,14 @@ export default function App() {
       }
       return [...prev, user];
     });
-    setIsAuthModalOpen(false);
     setToasts(prev => [
       {
         id: 'auth-' + Date.now(),
         title: '✅ Authenticated',
         message: `Welcome back, ${user.name}! Active role set to ${user.role}.`,
         type: 'approaching',
-        dateStr: new Date().toLocaleDateString()
+        dateStr: new Date().toLocaleDateString(),
+        autoDismissMs: 5000
       },
       ...prev
     ]);
@@ -413,7 +406,6 @@ export default function App() {
   const handleLogout = async () => {
     await authLogout();
     setCurrentUser(null);
-    setIsAuthModalOpen(false);
     // Reset away from any admin-only (or otherwise gated) tab so it can't
     // linger as stale state and cause a misleading "Access Restricted"
     // toast to fire the moment currentUser flips to null (see the
@@ -431,7 +423,8 @@ export default function App() {
         title: '👋 Signed Out',
         message: 'You have been signed out. Please sign in or register to continue.',
         type: 'approaching',
-        dateStr: new Date().toLocaleDateString()
+        dateStr: new Date().toLocaleDateString(),
+        autoDismissMs: 5000
       }
     ]);
   };
@@ -517,7 +510,8 @@ export default function App() {
           id: 'access-denied-' + Date.now(),
           title: '🚫 Access Restricted',
           message: 'Only verified System Administrators can access the System Admin Control Hub.',
-          type: 'overdue'
+          type: 'overdue',
+          autoDismissMs: 5000
         },
         ...prev
       ]);
@@ -819,7 +813,6 @@ export default function App() {
       {/* Main App Header */}
       <Header
         currentUser={currentUser}
-        onSelectUser={setCurrentUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         searchQuery={searchQuery}
@@ -832,8 +825,6 @@ export default function App() {
         overdueCount={overdueCount}
         approachingCount={approachingCount}
         onTriggerAlerts={handleTriggerAlerts}
-        allUsers={allUsers}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         dbConnected={dbConnected}
         aiEnabled={aiEnabled}
@@ -865,6 +856,8 @@ export default function App() {
                 allUsers={allUsers}
                 onAddTask={handleAddTask}
                 aiEnabled={aiEnabled}
+                defaultAssigneeId={pendingAssigneeId}
+                onConsumedDefaultAssignee={() => setPendingAssigneeId(null)}
               />
             </div>
 
@@ -999,6 +992,8 @@ export default function App() {
               currentUser={currentUser}
               onDeleteUser={handleDeleteUser}
               onSelectUserForBroadcast={(userName) => {
+                const targetUser = allUsers.find(u => u.name === userName);
+                setPendingAssigneeId(targetUser ? targetUser.id : null);
                 setActiveTab('FEED');
               }}
               onFilterByAssignee={(userName) => {
@@ -1038,13 +1033,6 @@ export default function App() {
         )}
 
       </main>
-
-      {/* Sign In & Sign Up Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
-      />
 
       {/* AI CPA Assistant Modal (conditionally rendered when AI features are enabled) */}
       {aiEnabled && isAiModalOpen && (

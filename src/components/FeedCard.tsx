@@ -9,19 +9,13 @@ import {
   Calendar,
   MessageSquare, 
   Send, 
-  User as UserIcon,
-  CheckCircle2,
   Sparkles,
   History,
-  FileText,
   ChevronDown,
   ChevronUp,
   Paperclip,
   Download,
-  Share2,
   ThumbsUp,
-  Flame,
-  Lightbulb,
   Loader2
 } from 'lucide-react';
 

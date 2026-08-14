@@ -6,7 +6,6 @@ import cookieParser from "cookie-parser";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { BIR_FILING_CALENDAR, computeUpcomingDueDates, findRuleForTaxType } from "./src/utils/birCalendar";
 
 dotenv.config();
 
@@ -893,7 +892,7 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/db/status", async (_req, res) => {
   try {
-    const { getDb, ensureTablesExist } = await import("./src/db/index");
+    const { ensureTablesExist } = await import("./src/db/index");
     await ensureTablesExist();
     res.json({ connected: true, provider: "PostgreSQL Database" });
   } catch (err: any) {

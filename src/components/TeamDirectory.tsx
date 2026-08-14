@@ -2,17 +2,11 @@ import React, { useState } from 'react';
 import { User, Task } from '../types';
 import { 
   Users, 
-  UserCheck, 
   Mail, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle, 
-  Briefcase, 
   ChevronRight, 
   PlusCircle, 
   Filter,
   ShieldAlert,
-  Layers,
   Calendar,
   Trash2
 } from 'lucide-react';
@@ -34,7 +28,6 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
   onDeleteUser,
   currentUser,
 }) => {
-  const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [searchMember, setSearchMember] = useState('');
 
   const filteredMembers = users.filter(u => 

@@ -234,7 +234,6 @@ test('a client cannot self-grant admin by sending role/status in the signup body
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: 'Self Grant', email, password: 'password123', role: 'System Administrator' }),
   });
-  const body = await res.json();
   assert.equal(res.status, 403, 'signup without a valid admin key must be rejected outright when requesting the admin role');
 });
 
@@ -517,4 +516,63 @@ test('logging in to a genuinely unknown email gets the generic message (no accou
   assert.equal(res.status, 401);
   const body = await res.json();
   assert.equal(body.error, 'Invalid email or password.');
+});
+
+test('Admin Control is completely inaccessible to a non-admin: every admin-only route rejects, even with a valid approved session', async () => {
+  // This is the actual guarantee that matters -- the nav button being
+  // hidden in the UI is just a courtesy; this is the enforcement boundary.
+  // Covers every route currently gated by requireAdmin in server.ts, so if
+  // a future admin-only route is added without this middleware, this test
+  // won't catch that automatically, but every route that exists today is
+  // explicitly checked below.
+  const email = uniqueEmail('nonadmin');
+  const s = new Session();
+  const signupRes = await s.request('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Regular Team Member', email, password: 'password123', role: 'Bookkeeper' }),
+  });
+  const signupBody = await signupRes.json();
+  assert.equal(signupRes.status, 200);
+  assert.equal(signupBody.user.role, 'Bookkeeper');
+  const someUserId = signupBody.user.id;
+
+  // Sanity check on a related guarantee while we're here: requesting the
+  // admin role with no (or a wrong) key must reject the signup outright --
+  // not silently create the account under a lesser role. A silent
+  // downgrade would be a worse UX (confusing) and technically still lets
+  // someone provision an account via a wrong guess, just with a role they
+  // didn't ask for; an explicit rejection is clearer and forces them to
+  // either get the real key or deliberately pick a normal role.
+  const badAdminAttempt = await new Session().request('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Wants Admin', email: uniqueEmail('wantsadmin'), password: 'password123', role: 'System Administrator' }),
+  });
+  assert.equal(badAdminAttempt.status, 403, 'requesting admin with no key must be rejected outright, not silently downgraded');
+
+  const adminRoutes: { method: string; path: string; body?: any }[] = [
+    { method: 'PUT', path: '/api/admin/settings', body: { newKey: 'attacker-key-1234' } },
+    { method: 'POST', path: '/api/admin/users', body: { name: 'Ghost', email: uniqueEmail('ghost'), role: 'Bookkeeper' } },
+    { method: 'PUT', path: `/api/users/${someUserId}/role`, body: { role: 'System Administrator' } },
+    { method: 'PUT', path: `/api/users/${someUserId}/status`, body: { status: 'APPROVED' } },
+    { method: 'DELETE', path: `/api/users/${someUserId}` },
+    { method: 'POST', path: `/api/users/${someUserId}/reset-password` },
+    { method: 'DELETE', path: `/api/categories/${encodeURIComponent('Some Category')}` },
+    { method: 'DELETE', path: '/api/deadlines/1' },
+    { method: 'POST', path: '/api/reset' },
+  ];
+
+  for (const route of adminRoutes) {
+    const res = await s.request(route.path, {
+      method: route.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: route.body ? JSON.stringify(route.body) : undefined,
+    });
+    assert.equal(
+      res.status,
+      403,
+      `${route.method} ${route.path} must reject a non-admin with 403, got ${res.status}`
+    );
+  }
 });
