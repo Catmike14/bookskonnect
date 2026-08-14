@@ -443,8 +443,50 @@ setInterval(async () => {
 // --- Admin master key (for self-service System Administrator signup) ------
 // Stored as a bcrypt hash server-side only. It is never sent back to the
 // client -- signup verifies the attempt against the hash server-side.
+// Defaults come from the ADMIN_KEY env var (or ADMIN123 if that's unset
+// too), but any rotation done via Admin Hub -> Security is persisted to the
+// app_settings table below so it survives the next redeploy/restart --
+// without that, a rotated key would silently revert to the env var default
+// every time the server restarts, which defeats the point of rotating it.
 let systemAdminMasterKeyHash = bcrypt.hashSync(process.env.ADMIN_KEY || "ADMIN123", 10);
 let publicAdminRegLocked = false;
+
+async function loadPersistedAdminSettings() {
+  if (!hasDb()) return;
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { appSettings } = await import("./src/db/schema");
+    const db = getDb();
+    const rows = await db.select().from(appSettings);
+    const keyRow = rows.find((r: any) => r.key === "admin_key_hash");
+    const lockedRow = rows.find((r: any) => r.key === "admin_reg_locked");
+    if (keyRow) systemAdminMasterKeyHash = keyRow.value;
+    if (lockedRow) publicAdminRegLocked = lockedRow.value === "true";
+    if (keyRow || lockedRow) {
+      console.log("[Accounting Portal] Loaded persisted admin security settings from database.");
+    }
+  } catch (err: any) {
+    console.error("[Accounting Portal] Could not load persisted admin settings, using env var defaults:", err.message);
+  }
+}
+
+async function persistAdminSetting(key: string, value: string) {
+  if (!hasDb()) return; // in-memory-only mode -- nothing to persist to
+  try {
+    const { getDb } = await import("./src/db/index");
+    const { appSettings } = await import("./src/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const existing = await db.select().from(appSettings).where(eq(appSettings.key, key));
+    if (existing.length > 0) {
+      await db.update(appSettings).set({ value }).where(eq(appSettings.key, key));
+    } else {
+      await db.insert(appSettings).values({ key, value });
+    }
+  } catch (err: any) {
+    console.error(`[Accounting Portal] Could not persist admin setting "${key}":`, err.message);
+  }
+}
 
 // --- Auth routes ------------------------------------------------------------
 
@@ -653,9 +695,11 @@ app.put("/api/admin/settings", requireAdmin, async (req, res) => {
     const { newKey, locked } = req.body || {};
     if (typeof locked === "boolean") {
       publicAdminRegLocked = locked;
+      await persistAdminSetting("admin_reg_locked", String(locked));
     }
     if (typeof newKey === "string" && newKey.trim().length >= 4) {
       systemAdminMasterKeyHash = await bcrypt.hash(newKey.trim(), 10);
+      await persistAdminSetting("admin_key_hash", systemAdminMasterKeyHash);
     }
     res.json({ success: true, locked: publicAdminRegLocked });
   } catch (err: any) {
@@ -1407,6 +1451,7 @@ async function startServer() {
       const { ensureTablesExist } = await import("./src/db/index");
       await ensureTablesExist();
       console.log("[Accounting Portal] Database schema verified/migrated.");
+      await loadPersistedAdminSettings();
     } catch (err: any) {
       console.error(
         "[Accounting Portal] Database migration failed at startup -- the app will still start, " +

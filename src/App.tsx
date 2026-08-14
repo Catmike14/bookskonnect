@@ -414,15 +414,25 @@ export default function App() {
     await authLogout();
     setCurrentUser(null);
     setIsAuthModalOpen(false);
-    setToasts(prev => [
+    // Reset away from any admin-only (or otherwise gated) tab so it can't
+    // linger as stale state and cause a misleading "Access Restricted"
+    // toast to fire the moment currentUser flips to null (see the
+    // ADMIN-tab-guard effect below -- it reacts to currentUser changing,
+    // and a stale activeTab='ADMIN' would make it fire for the wrong
+    // reason: "you're signed out", not "you lack permission").
+    setActiveTab('FEED');
+    // Toasts from the session that just ended aren't useful context for
+    // whatever comes next (a fresh login, or someone else's session on
+    // this device) -- start clean rather than carrying stale notifications
+    // across a sign-out.
+    setToasts([
       {
         id: 'logout-' + Date.now(),
         title: '👋 Signed Out',
         message: 'You have been signed out. Please sign in or register to continue.',
         type: 'approaching',
         dateStr: new Date().toLocaleDateString()
-      },
-      ...prev
+      }
     ]);
   };
 
@@ -489,7 +499,18 @@ export default function App() {
   }, [clients]);
 
   useEffect(() => {
-    if (activeTab === 'ADMIN' && (currentUser?.role !== 'System Administrator' || currentUser?.status !== 'APPROVED')) {
+    // Don't evaluate this at all until we actually know who (if anyone) is
+    // signed in -- otherwise the brief window while fetchCurrentUser() is
+    // still resolving on page load looks identical to "not an admin" and
+    // would fire a false-positive toast before the real answer comes back.
+    if (isCheckingSession) return;
+    // A signed-out user landing on this tab isn't a permissions problem --
+    // it's just "you're signed out" (handleLogout already shows that
+    // message and resets activeTab away from ADMIN on its own). Only warn
+    // about restricted access when someone IS signed in but isn't an
+    // approved admin -- that's the actual "Access Restricted" case.
+    if (!currentUser) return;
+    if (activeTab === 'ADMIN' && (currentUser.role !== 'System Administrator' || currentUser.status !== 'APPROVED')) {
       setActiveTab('FEED');
       setToasts(prev => [
         {
@@ -501,7 +522,7 @@ export default function App() {
         ...prev
       ]);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, isCheckingSession]);
 
   // Handlers
   const syncTaskApi = (task: Task) => {

@@ -33,6 +33,16 @@ export const taskCategories = pgTable('task_categories', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Small persisted key/value store for admin-configurable settings that
+// used to live only in an in-memory `let` (the admin master key hash, and
+// whether public admin self-registration is locked) -- meaning every
+// redeploy silently reset a rotated key back to the ADMIN_KEY env var (or
+// the ADMIN123 default). Persisting these means a rotation actually sticks.
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
 export const clients = pgTable('clients', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
