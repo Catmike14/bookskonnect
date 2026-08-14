@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Priority, Task, DEFAULT_TAX_CATEGORIES } from '../types';
-import { INITIAL_CLIENTS } from '../data/initialData';
+import { User, Priority, Task, Client, DEFAULT_TAX_CATEGORIES } from '../types';
 import { apiFetch } from '../utils/apiFetch';
 import { 
   Send, 
@@ -24,6 +23,7 @@ import {
 interface BroadcastFormProps {
   currentUser: User;
   allUsers?: User[];
+  clients?: Client[];
   onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => void;
   aiEnabled?: boolean;
   /** Pre-selects this user as the assignee on mount -- used by "Assign
@@ -37,7 +37,7 @@ interface BroadcastFormProps {
   onConsumedDefaultAssignee?: () => void;
 }
 
-export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], onAddTask, aiEnabled = true, defaultAssigneeId, onConsumedDefaultAssignee }) => {
+export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUsers = [], clients = [], onAddTask, aiEnabled = true, defaultAssigneeId, onConsumedDefaultAssignee }) => {
   const userList = allUsers.length > 0 ? allUsers : (currentUser ? [currentUser] : []);
   const [clientName, setClientName] = useState('');
   const [customClient, setCustomClient] = useState('');
@@ -282,11 +282,17 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
             required
           >
             <option value="">-- Select Client --</option>
-            {INITIAL_CLIENTS.map(c => (
+            {clients.map(c => (
               <option key={c.id} value={c.name}>{c.name} ({c.industry})</option>
             ))}
             <option value="OTHER">+ Add Custom Client Name...</option>
           </select>
+
+          {clients.length === 0 && (
+            <p className="mt-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+              No clients in your directory yet -- add one under Client Directory so it shows up here automatically next time, or use "Add Custom Client Name" for now.
+            </p>
+          )}
 
           {clientName === 'OTHER' && (
             <input

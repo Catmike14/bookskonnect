@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { User } from '../types';
 import { changePassword } from '../utils/authClient';
 import { 
@@ -360,8 +361,15 @@ export const Header: React.FC<HeaderProps> = ({
 
       </div>
 
-      {/* Change Password Modal */}
-      {showChangePassword && (
+      {/* Change Password Modal -- rendered via a portal directly into
+          document.body, deliberately outside <header>'s DOM subtree. The
+          header uses backdrop-blur (a CSS backdrop-filter), and any
+          element with a filter/backdrop-filter becomes the containing
+          block for its position:fixed descendants per the CSS spec --
+          so without the portal, this modal would be positioned relative
+          to the header's own box instead of the viewport, making it
+          appear squashed near the top of the page instead of centered. */}
+      {showChangePassword && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
           onClick={() => setShowChangePassword(false)}
@@ -430,7 +438,8 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

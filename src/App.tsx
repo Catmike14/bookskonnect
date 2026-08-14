@@ -854,6 +854,7 @@ export default function App() {
               <BroadcastForm
                 currentUser={currentUser}
                 allUsers={allUsers}
+                clients={clients}
                 onAddTask={handleAddTask}
                 aiEnabled={aiEnabled}
                 defaultAssigneeId={pendingAssigneeId}
