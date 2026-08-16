@@ -50,7 +50,7 @@ export const TeamDirectory: React.FC<TeamDirectoryProps> = ({
               Accounting Team Directory & Workload
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Monitor team capacity, track active filings assigned to CPAs, and balance workload distribution.
+              Monitor team capacity, track active filings assigned to staff, and balance workload distribution.
             </p>
           </div>
         </div>

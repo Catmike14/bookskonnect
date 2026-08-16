@@ -699,11 +699,11 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Status, Handler & CPA Notes */}
+              {/* Status, Handler & Staff Notes */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200/80 space-y-3">
                 <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                   <Shield className="w-4 h-4 text-emerald-600" />
-                  Account Status & CPA Audit Notes
+                  Account Status & Staff Audit Notes
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -720,7 +720,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="text-slate-500 font-semibold mb-1 block">Assigned CPA Handler</label>
+                    <label className="text-slate-500 font-semibold mb-1 block">Assigned Staff Handler</label>
                     <input
                       type="text"
                       value={formData.managerInCharge}
@@ -767,7 +767,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               <div className="bg-emerald-50/80 border border-emerald-200/90 p-4 rounded-2xl text-xs text-emerald-900">
                 <div className="flex items-center gap-2 font-bold mb-1">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>Gemini CPA Document & Reminder Draft Generator</span>
+                  <span>Gemini Staff Document & Reminder Draft Generator</span>
                 </div>
                 <p className="text-slate-600 leading-relaxed">
                   Generate professional BIR compliance emails formatted specifically for <strong>{client.name}</strong>.

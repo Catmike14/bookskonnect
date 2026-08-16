@@ -341,7 +341,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
               <div className="flex items-center gap-2 text-emerald-400 font-bold">
                 <Sparkles className="w-4 h-4" />
-                <span>Gemini CPA Roadblock Resolution Plan</span>
+                <span>Gemini Staff Roadblock Resolution Plan</span>
               </div>
               <button 
                 onClick={() => setShowAiStrategyModal(false)}

@@ -87,7 +87,7 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-white tracking-tight flex items-center gap-2">
-                <span>Gemini Senior CPA & Advisory Assistant</span>
+                <span>Gemini Staff Advisory Assistant</span>
                 <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
                   AI Powered
                 </span>
@@ -128,14 +128,14 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-              <p className="text-xs font-medium">Consulting CPA knowledge base and compiling guidance...</p>
+              <p className="text-xs font-medium">Consulting staff knowledge base and compiling guidance...</p>
             </div>
           ) : response ? (
             <div className="bg-slate-800/90 rounded-2xl p-5 border border-slate-700 space-y-3 relative group">
               <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-xs font-bold text-emerald-400">
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4" />
-                  <span>CPA Advisory Report</span>
+                  <span>Staff Advisory Report</span>
                 </span>
                 <button
                   onClick={handleCopy}

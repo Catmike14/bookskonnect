@@ -103,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-extrabold tracking-tight text-slate-900 leading-none">Accounting Portal</h1>
                 <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  CPAs & Tax Feed
+                  Staff & Tax Feed
                 </span>
                 {dbConnected && (
                   <span className="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -260,14 +260,14 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* AI CPA Assistant Trigger Button (when enabled by Admin) */}
+          {/* AI Staff Assistant Trigger Button (when enabled by Admin) */}
           {aiEnabled && (
             <button
               onClick={onOpenAiAssistant}
               className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer shrink-0"
             >
               <Sparkles className="w-4 h-4 text-emerald-200 animate-pulse" />
-              <span className="hidden lg:inline">AI CPA Assistant</span>
+              <span className="hidden lg:inline">AI Staff Assistant</span>
             </button>
           )}
 

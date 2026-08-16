@@ -266,7 +266,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
               <span>Firm Client Accounts Directory</span>
             </h2>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Manage client compliance health, active BIR tax types for filing, RDO details, and assigned CPAs
+              Manage client compliance health, active BIR tax types for filing, RDO details, and assigned staff
             </p>
           </div>
 
@@ -422,7 +422,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                   <div>
                     <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Contact Person</span>
                     <span className="font-medium text-slate-700 truncate block">
-                      {client.contactPerson || client.contactEmail || 'Authorized CPA Rep'}
+                      {client.contactPerson || client.contactEmail || 'Authorized Staff Rep'}
                     </span>
                   </div>
                 </div>
@@ -447,7 +447,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
                 {client.notes && (
                   <p className="text-xs text-slate-600 bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
-                    <strong className="text-amber-900 font-semibold">CPA Note:</strong> {client.notes}
+                    <strong className="text-amber-900 font-semibold">Staff Note:</strong> {client.notes}
                   </p>
                 )}
               </div>
@@ -505,7 +505,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-base">Add New Client Profile</h3>
-                  <p className="text-xs text-slate-500">Configure BIR tax filing obligations, RDO info, and CPA assignment</p>
+                  <p className="text-xs text-slate-500">Configure BIR tax filing obligations, RDO info, and staff assignment</p>
                 </div>
               </div>
               <button 
@@ -760,7 +760,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Assigned CPA Handler</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Assigned Staff Handler</label>
                     <input
                       type="text"
                       placeholder="e.g. Michael Catorce"
@@ -799,7 +799,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">CPA / Auditor Notes</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Staff / Auditor Notes</label>
                   <textarea
                     placeholder="Record special tax exemptions, book mapping rules, or client instructions..."
                     value={newClient.notes}

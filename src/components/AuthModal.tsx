@@ -246,7 +246,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleSignupSubmit} className="space-y-4">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-2">
                 <UserPlus className="w-4 h-4 text-emerald-600" />
-                <span>Register New CPA or Accountant Account</span>
+                <span>Register New Staff Account</span>
               </div>
 
               {signupError && (

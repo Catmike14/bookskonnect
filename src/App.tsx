@@ -105,7 +105,7 @@ export default function App() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastAlert[]>([]);
 
-  // AI CPA Assistant & Gemini Features Enable/Disable State
+  // AI Staff Assistant & Gemini Features Enable/Disable State
   const [aiEnabled, setAiEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('bk_ai_enabled');
     return saved !== null ? saved === 'true' : true;
@@ -1064,7 +1064,7 @@ export default function App() {
 
       </main>
 
-      {/* AI CPA Assistant Modal (conditionally rendered when AI features are enabled) */}
+      {/* AI Staff Assistant Modal (conditionally rendered when AI features are enabled) */}
       {aiEnabled && isAiModalOpen && (
         <Suspense fallback={null}>
           <AICpaAssistantModal
