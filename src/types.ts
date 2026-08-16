@@ -39,8 +39,7 @@ export const DEFAULT_TAX_CATEGORIES: string[] = [
   'Business Permit Renewal',
   'General Advisory',
   'Final Withholding 1601-FQ',
-  'Individual Income Tax 1701',
-  'Annual Registration 0605'
+  'Individual Income Tax 1701'
 ];
 
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL';
@@ -114,7 +113,6 @@ export const COMMON_TAX_TYPES = [
   'Final Withholding Tax (Form 1601-FQ)',
   'Corporate Income Tax (Form 1702-RT/EX)',
   'Individual Income Tax (Form 1701)',
-  'Annual Registration Fee (Form 0605)',
   'Local Business Tax (LGU Permits)',
   'SSS / PhilHealth / Pag-IBIG Contributions'
 ];
@@ -124,6 +122,7 @@ export const ENTITY_TYPES = [
   'Corporation',
   'One Person Corporation (OPC)',
   'Sole Proprietorship',
+  'Professional (Individual Practitioner)',
   'Partnership',
   'General Professional Partnership (GPP)',
   'Cooperative'

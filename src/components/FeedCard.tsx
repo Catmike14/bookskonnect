@@ -16,7 +16,8 @@ import {
   Paperclip,
   Download,
   ThumbsUp,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 interface FeedCardProps {
@@ -26,6 +27,7 @@ interface FeedCardProps {
   onToggleFlag: (taskId: number, currentFlagged: boolean, reason?: string) => void;
   onAddComment: (taskId: number, content: string) => void;
   onToggleReaction: (taskId: number, reactionType: string) => void;
+  onDeleteTask?: (taskId: number) => void;
 }
 
 export const FeedCard: React.FC<FeedCardProps> = ({
@@ -35,12 +37,17 @@ export const FeedCard: React.FC<FeedCardProps> = ({
   onToggleFlag,
   onAddComment,
   onToggleReaction,
+  onDeleteTask,
 }) => {
   const [commentText, setCommentText] = useState('');
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [showAiStrategyModal, setShowAiStrategyModal] = useState(false);
   const [aiStrategyLoading, setAiStrategyLoading] = useState(false);
   const [aiStrategyContent, setAiStrategyContent] = useState<string | null>(null);
+  const [isFlaggingUI, setIsFlaggingUI] = useState(false);
+  const [flagReasonInput, setFlagReasonInput] = useState('');
+
+  const canDelete = Boolean(onDeleteTask) && (task.creator?.id === currentUser.id || currentUser.role === 'System Administrator');
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,11 +59,26 @@ export const FeedCard: React.FC<FeedCardProps> = ({
   const handleFlagClick = () => {
     if (task.flagged) {
       onToggleFlag(task.id, true);
-    } else {
-      const reason = prompt('Reason for flagging this roadblock (e.g. Missing supplier 2307, delayed client sign-off):');
-      if (reason) {
-        onToggleFlag(task.id, false, reason);
-      }
+      return;
+    }
+    // Reveals an inline reason field in the card instead of a native
+    // browser prompt() -- consistent with the rest of the app, which
+    // doesn't use native dialogs for anything but simple yes/no confirms.
+    setIsFlaggingUI(true);
+  };
+
+  const handleFlagReasonSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!flagReasonInput.trim()) return;
+    onToggleFlag(task.id, false, flagReasonInput.trim());
+    setIsFlaggingUI(false);
+    setFlagReasonInput('');
+  };
+
+  const handleDeleteClick = () => {
+    if (!onDeleteTask) return;
+    if (confirm(`Delete this update ("${task.title}")? This can't be undone.`)) {
+      onDeleteTask(task.id);
     }
   };
 
@@ -175,6 +197,16 @@ export const FeedCard: React.FC<FeedCardProps> = ({
             >
               <Flag className={`w-3.5 h-3.5 ${task.flagged ? 'fill-red-600 text-red-600' : ''}`} />
             </button>
+
+            {canDelete && (
+              <button
+                onClick={handleDeleteClick}
+                title="Delete this update"
+                className="p-2 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-red-600 hover:border-red-300 transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -246,6 +278,40 @@ export const FeedCard: React.FC<FeedCardProps> = ({
               );
             })}
           </div>
+        )}
+
+        {/* Inline flag-reason form -- replaces a native prompt() dialog */}
+        {isFlaggingUI && (
+          <form onSubmit={handleFlagReasonSubmit} className="mt-4 bg-red-50/70 border border-red-200 rounded-2xl p-3.5 space-y-2">
+            <label className="text-xs font-bold text-red-900 flex items-center gap-1.5">
+              <Flag className="w-3.5 h-3.5 text-red-600" />
+              Reason for flagging this roadblock
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={flagReasonInput}
+              onChange={(e) => setFlagReasonInput(e.target.value)}
+              placeholder="e.g. Missing supplier 2307, delayed client sign-off"
+              className="w-full text-xs px-3 py-2 bg-white border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={!flagReasonInput.trim()}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Flag Roadblock
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsFlaggingUI(false); setFlagReasonInput(''); }}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Roadblock Warning Banner */}

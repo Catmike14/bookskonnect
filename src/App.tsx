@@ -519,12 +519,39 @@ export default function App() {
   }, [currentUser, activeTab, isCheckingSession]);
 
   // Handlers
-  const syncTaskApi = (task: Task) => {
-    apiFetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(task)
-    }).catch(() => {});
+  // NOTE: fetch() does not reject on HTTP error statuses (403, 500, etc.) --
+  // only on genuine network failure. A bare .catch(() => {}) here would
+  // silently swallow those the same way it swallows network errors, so a
+  // rejected update (session expired, CSRF mismatch, approval revoked
+  // mid-session) would leave the optimistic UI change looking successful
+  // while nothing was actually saved server-side. Checking response.ok and
+  // surfacing a toast either way closes that gap.
+  const syncTaskApi = async (task: Task) => {
+    try {
+      const res = await apiFetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(task)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setToasts(prev => [{
+          id: 'sync-fail-' + Date.now(),
+          title: '⚠️ Update Not Saved',
+          message: data.error || 'This change could not be saved to the server. Please refresh and try again.',
+          type: 'overdue',
+          autoDismissMs: 7000
+        }, ...prev]);
+      }
+    } catch (err) {
+      setToasts(prev => [{
+        id: 'sync-fail-' + Date.now(),
+        title: '⚠️ Update Not Saved',
+        message: 'Network error -- this change could not be saved. Please check your connection and try again.',
+        type: 'overdue',
+        autoDismissMs: 7000
+      }, ...prev]);
+    }
   };
 
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => {
@@ -727,7 +754,8 @@ export default function App() {
       const matchCategory = t.category.toLowerCase().includes(q);
       const matchDescription = t.description.toLowerCase().includes(q);
       const matchCreator = t.creator.name.toLowerCase().includes(q);
-      if (!matchTitle && !matchClient && !matchCategory && !matchDescription && !matchCreator) {
+      const matchAssignee = t.assignee?.name.toLowerCase().includes(q) ?? false;
+      if (!matchTitle && !matchClient && !matchCategory && !matchDescription && !matchCreator && !matchAssignee) {
         return false;
       }
     }
@@ -945,6 +973,7 @@ export default function App() {
                       onToggleFlag={handleToggleFlag}
                       onAddComment={handleAddComment}
                       onToggleReaction={handleToggleReaction}
+                      onDeleteTask={handleDeleteTask}
                     />
                   ))
                 )}

@@ -1,10 +1,14 @@
 import { TaxCategory } from '../types';
 
 export type FilingFrequency = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL';
+export type QuarterlyDueRule = 'offsetDays' | 'lastDayOfNextMonth';
 
 export interface BirFilingRule {
   /** Must match a value in COMMON_TAX_TYPES (types.ts) -- this is how a
-   * client's applicableTaxes selections map to a filing schedule. */
+   * client's applicableTaxes selections map to a filing schedule. A single
+   * taxType can have MULTIPLE rules (e.g. expanded withholding has a
+   * monthly remittance, a quarterly return, AND an annual alphalist --
+   * three real, independent filing obligations under one tax type). */
   taxType: string;
   formCode: string;
   name: string;
@@ -13,9 +17,28 @@ export interface BirFilingRule {
   /** MONTHLY only: day of the month *following* the period month that the
    * filing is due on (e.g. 10 = due the 10th of next month). */
   monthlyDueDay?: number;
-  /** QUARTERLY only: days after the close of the taxable quarter (Mar 31,
-   * Jun 30, Sep 30, Dec 31) that the filing is due. */
+  /** MONTHLY only: overrides monthlyDueDay specifically for the December
+   * period (1601-C's December remittance is due Jan 15, not the usual
+   * 10th -- a well-known year-end exception). */
+  monthlyDecemberDueDay?: number;
+  /** MONTHLY only: skip generating a deadline for the 3rd month of each
+   * quarter. Used for 0619-E: taxes withheld in a quarter's first two
+   * months are remitted monthly via 0619-E, but the third month's amount
+   * is folded into the quarterly 1601-EQ instead of a separate 0619-E. */
+  monthlySkipThirdMonthOfQuarter?: boolean;
+  /** QUARTERLY only: which due-date formula applies.
+   * 'offsetDays' = a fixed number of days after the quarter closes (VAT,
+   * percentage tax, 1702Q -- all a simple day-count from quarter-end).
+   * 'lastDayOfNextMonth' = the last calendar day of the month immediately
+   * following the quarter (1601-EQ, 1601-FQ) -- NOT a fixed day-count,
+   * since "next month" is sometimes 30 days long and sometimes 31. */
+  quarterlyDueRule?: QuarterlyDueRule;
+  /** QUARTERLY + 'offsetDays' only: days after quarter-close the filing is due. */
   quarterlyOffsetDays?: number;
+  /** QUARTERLY only: skip the Q4 (Oct-Dec) occurrence. Used for 1702Q,
+   * which only covers the first three quarters -- Q4 is folded into the
+   * annual 1702 return instead of getting its own quarterly filing. */
+  quarterlySkipQ4?: boolean;
   /** ANNUAL only: fixed month (1-12) and day of month the filing is due
    * every year. */
   annualDueMonth?: number;
@@ -23,13 +46,28 @@ export interface BirFilingRule {
 }
 
 /**
- * Statutory BIR deadlines under the NIRC, as commonly cited (VAT/percentage
- * tax: 25 days after the taxable quarter; withholding remittances: 10th of
- * the following month; annual income tax: April 15). These are long-standing
- * rules, but BIR revenue regulations do get amended, filer-type extensions
- * (e.g. eFPS group schedules) exist, and a client's actual fiscal year may
- * not be the calendar year. Anything generated from this calendar should be
- * treated as a starting point for the team to verify, not filed blind.
+ * Statutory BIR deadlines, verified against the Ease of Paying Taxes Act
+ * (RA 11976, effective Jan 2024) and current guidance rather than assumed
+ * from older pre-EOPT material. Two corrections from an earlier version of
+ * this file, worth calling out because they'd have generated genuinely
+ * wrong dates:
+ *   - 1601-EQ and 1601-FQ are due the LAST DAY of the month following the
+ *     quarter (Apr 30 / Jul 31 / Oct 31 / Jan 31) -- not a flat "+30 days",
+ *     which is wrong for 3 of the 4 quarters (July and October both have
+ *     31-day "next months", not 30).
+ *   - 0619-E (the monthly expanded withholding remittance) only applies to
+ *     a quarter's first two months; the third month is covered by the
+ *     quarterly 1601-EQ instead, not a third 0619-E filing.
+ * "Annual Registration Fee (Form 0605)" has been removed entirely: the
+ * PHP 500 ARF was abolished under EOPT effective January 22, 2024, and is
+ * no longer collected from most taxpayers.
+ *
+ * These are still long-standing statutory rules, not a live feed of BIR
+ * issuances -- revenue regulations get amended, filer-type extensions
+ * (eFPS group schedules, RMC-granted extensions) exist, and a client's
+ * actual fiscal year may not be the calendar year. Anything generated from
+ * this calendar is a starting point for the team to verify, not a filing
+ * instruction.
  */
 export const BIR_FILING_CALENDAR: BirFilingRule[] = [
   {
@@ -38,6 +76,7 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     name: 'VAT Quarterly Return',
     category: 'VAT 2550Q',
     frequency: 'QUARTERLY',
+    quarterlyDueRule: 'offsetDays',
     quarterlyOffsetDays: 25,
   },
   {
@@ -46,6 +85,7 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     name: 'Percentage Tax Quarterly Return',
     category: 'Percentage Tax 2551Q',
     frequency: 'QUARTERLY',
+    quarterlyDueRule: 'offsetDays',
     quarterlyOffsetDays: 25,
   },
   {
@@ -55,6 +95,16 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     category: 'Withholding Tax 1601-C',
     frequency: 'MONTHLY',
     monthlyDueDay: 10,
+    monthlyDecemberDueDay: 15,
+  },
+  {
+    taxType: 'Compensation Withholding (Form 1601-C)',
+    formCode: '1604-C',
+    name: 'Annual Alphalist of Employees (Compensation Withholding)',
+    category: 'Withholding Tax 1601-C',
+    frequency: 'ANNUAL',
+    annualDueMonth: 1,
+    annualDueDay: 31,
   },
   {
     taxType: 'Expanded Withholding (Form 0619-E / 1601-EQ)',
@@ -63,6 +113,24 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     category: 'Expanded Withholding 0619-E',
     frequency: 'MONTHLY',
     monthlyDueDay: 10,
+    monthlySkipThirdMonthOfQuarter: true,
+  },
+  {
+    taxType: 'Expanded Withholding (Form 0619-E / 1601-EQ)',
+    formCode: '1601-EQ',
+    name: 'Expanded Withholding Tax Quarterly Return (with QAP)',
+    category: 'Expanded Withholding 0619-E',
+    frequency: 'QUARTERLY',
+    quarterlyDueRule: 'lastDayOfNextMonth',
+  },
+  {
+    taxType: 'Expanded Withholding (Form 0619-E / 1601-EQ)',
+    formCode: '1604-E',
+    name: 'Annual Alphalist of Payees (Expanded Withholding)',
+    category: 'Expanded Withholding 0619-E',
+    frequency: 'ANNUAL',
+    annualDueMonth: 3,
+    annualDueDay: 1,
   },
   {
     taxType: 'Final Withholding Tax (Form 1601-FQ)',
@@ -70,7 +138,17 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     name: 'Final Withholding Tax Quarterly Return',
     category: 'Final Withholding 1601-FQ',
     frequency: 'QUARTERLY',
-    quarterlyOffsetDays: 30,
+    quarterlyDueRule: 'lastDayOfNextMonth',
+  },
+  {
+    taxType: 'Corporate Income Tax (Form 1702-RT/EX)',
+    formCode: '1702Q',
+    name: 'Quarterly Income Tax Return',
+    category: 'Annual ITR 1702',
+    frequency: 'QUARTERLY',
+    quarterlyDueRule: 'offsetDays',
+    quarterlyOffsetDays: 60,
+    quarterlySkipQ4: true,
   },
   {
     taxType: 'Corporate Income Tax (Form 1702-RT/EX)',
@@ -90,15 +168,6 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
     annualDueMonth: 4,
     annualDueDay: 15,
   },
-  {
-    taxType: 'Annual Registration Fee (Form 0605)',
-    formCode: '0605',
-    name: 'Annual Registration Fee',
-    category: 'Annual Registration 0605',
-    frequency: 'ANNUAL',
-    annualDueMonth: 1,
-    annualDueDay: 31,
-  },
 ];
 
 /**
@@ -109,6 +178,12 @@ export const BIR_FILING_CALENDAR: BirFilingRule[] = [
  * number. Surfacing a made-up fixed date for these would be actively
  * misleading, so they're deliberately left out of BIR_FILING_CALENDAR and
  * should be added to the compliance calendar manually instead.
+ *
+ * Not yet modeled despite having a fixed rule (a known gap, not a decision
+ * to exclude): individual quarterly income tax (1701Q) has an irregular
+ * Q3 due date (a fixed mid-November date rather than the usual "60 days
+ * after quarter-close" pattern) that needs its own verified rule before
+ * it's safe to add here.
  */
 export const MANUAL_ONLY_TAX_TYPES = [
   'Local Business Tax (LGU Permits)',
@@ -156,10 +231,17 @@ export function computeUpcomingDueDates(
   const windowEnd = new Date(today.getFullYear(), today.getMonth() + monthsAhead, today.getDate());
 
   if (rule.frequency === 'MONTHLY') {
-    const dueDay = rule.monthlyDueDay ?? 10;
     for (let offset = -1; offset <= monthsAhead + 1; offset++) {
       const periodDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+
+      if (rule.monthlySkipThirdMonthOfQuarter && periodDate.getMonth() % 3 === 2) {
+        continue; // this period's obligation is covered by the quarterly return instead
+      }
+
+      const isDecember = periodDate.getMonth() === 11;
+      const dueDay = (isDecember && rule.monthlyDecemberDueDay) ? rule.monthlyDecemberDueDay : (rule.monthlyDueDay ?? 10);
       const dueDate = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, dueDay);
+
       if (dueDate >= windowStart && dueDate <= windowEnd) {
         results.push({
           periodLabel: periodDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
@@ -168,12 +250,17 @@ export function computeUpcomingDueDates(
       }
     }
   } else if (rule.frequency === 'QUARTERLY') {
-    const offsetDays = rule.quarterlyOffsetDays ?? 25;
+    const dueRule = rule.quarterlyDueRule ?? 'offsetDays';
     for (let yearOffset = -1; yearOffset <= 1; yearOffset++) {
       const year = today.getFullYear() + yearOffset;
       for (const qEndMonthIdx of QUARTER_END_MONTH_INDEXES) {
+        if (rule.quarterlySkipQ4 && qEndMonthIdx === 11) continue; // no Q4 return -- covered by the annual filing
+
         const quarterEnd = lastDayOfMonth(year, qEndMonthIdx);
-        const dueDate = new Date(quarterEnd.getFullYear(), quarterEnd.getMonth(), quarterEnd.getDate() + offsetDays);
+        const dueDate = dueRule === 'lastDayOfNextMonth'
+          ? lastDayOfMonth(quarterEnd.getFullYear(), quarterEnd.getMonth() + 1)
+          : new Date(quarterEnd.getFullYear(), quarterEnd.getMonth(), quarterEnd.getDate() + (rule.quarterlyOffsetDays ?? 25));
+
         if (dueDate >= windowStart && dueDate <= windowEnd) {
           const quarterNumber = Math.floor(qEndMonthIdx / 3) + 1;
           results.push({
@@ -199,8 +286,11 @@ export function computeUpcomingDueDates(
   return results;
 }
 
-export function findRuleForTaxType(taxType: string): BirFilingRule | undefined {
-  return BIR_FILING_CALENDAR.find((r) => r.taxType === taxType);
+/** A tax type can map to more than one concrete filing rule (see
+ * BirFilingRule's doc comment) -- callers must handle all of them, not just
+ * the first match. */
+export function findRulesForTaxType(taxType: string): BirFilingRule[] {
+  return BIR_FILING_CALENDAR.filter((r) => r.taxType === taxType);
 }
 
 export interface PlannedGenerationItem {
@@ -257,32 +347,34 @@ export function planDeadlineGeneration(
 
   for (const client of clients) {
     for (const taxType of client.applicableTaxes || []) {
-      const rule = findRuleForTaxType(taxType);
-      if (!rule) continue; // no auto-schedule for this tax type (e.g. LGU permits, SSS)
+      const rules = findRulesForTaxType(taxType);
+      if (rules.length === 0) continue; // no auto-schedule for this tax type (e.g. LGU permits, SSS)
 
-      const occurrences = computeUpcomingDueDates(rule, monthsAhead, today);
-      for (const occurrence of occurrences) {
-        const needsDeadline = !existingDeadlines.some(
-          (d) => d.clientId === client.id && d.formCode === rule.formCode && d.deadlineDate === occurrence.dueDate
-        );
-        const needsTask = !existingTasks.some(
-          (t) => t.clientName === client.name && t.category === rule.category && t.dueDate === occurrence.dueDate
-        );
-        if (!needsDeadline && !needsTask) continue; // already fully generated, nothing to do
+      for (const rule of rules) {
+        const occurrences = computeUpcomingDueDates(rule, monthsAhead, today);
+        for (const occurrence of occurrences) {
+          const needsDeadline = !existingDeadlines.some(
+            (d) => d.clientId === client.id && d.formCode === rule.formCode && d.deadlineDate === occurrence.dueDate
+          );
+          const needsTask = !existingTasks.some(
+            (t) => t.clientName === client.name && t.category === rule.category && t.dueDate === occurrence.dueDate
+          );
+          if (!needsDeadline && !needsTask) continue; // already fully generated, nothing to do
 
-        results.push({
-          clientId: client.id,
-          clientName: client.name,
-          formCode: rule.formCode,
-          name: `${rule.name} — ${client.name}`,
-          deadlineDate: occurrence.dueDate,
-          description: `Auto-generated from the BIR filing calendar for ${occurrence.periodLabel}. Verify against current BIR/RMC guidance before filing.`,
-          category: rule.category,
-          periodLabel: occurrence.periodLabel,
-          taxType,
-          needsDeadline,
-          needsTask,
-        });
+          results.push({
+            clientId: client.id,
+            clientName: client.name,
+            formCode: rule.formCode,
+            name: `${rule.name} — ${client.name}`,
+            deadlineDate: occurrence.dueDate,
+            description: `Auto-generated from the BIR filing calendar for ${occurrence.periodLabel}. Verify against current BIR/RMC guidance before filing.`,
+            category: rule.category,
+            periodLabel: occurrence.periodLabel,
+            taxType,
+            needsDeadline,
+            needsTask,
+          });
+        }
       }
     }
   }

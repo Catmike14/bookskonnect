@@ -67,8 +67,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
       'Expanded Withholding (Form 0619-E / 1601-EQ)',
-      'Corporate Income Tax (Form 1702-RT/EX)',
-      'Annual Registration Fee (Form 0605)'
+      'Corporate Income Tax (Form 1702-RT/EX)'
     ],
     managerInCharge: client.managerInCharge,
     healthStatus: client.healthStatus,
@@ -102,8 +101,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
           'VAT (Form 2550Q)',
           'Compensation Withholding (Form 1601-C)',
           'Expanded Withholding (Form 0619-E / 1601-EQ)',
-          'Corporate Income Tax (Form 1702-RT/EX)',
-          'Annual Registration Fee (Form 0605)'
+          'Corporate Income Tax (Form 1702-RT/EX)'
         ],
         managerInCharge: client.managerInCharge,
         healthStatus: client.healthStatus,

@@ -55,6 +55,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
   const [selectedTaxFilter, setSelectedTaxFilter] = useState<string>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDetailClient, setSelectedDetailClient] = useState<Client | null>(null);
+  const [duplicateTinError, setDuplicateTinError] = useState('');
 
   const [newClient, setNewClient] = useState({
     name: '',
@@ -68,11 +69,10 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
       'VAT (Form 2550Q)',
       'Compensation Withholding (Form 1601-C)',
       'Expanded Withholding (Form 0619-E / 1601-EQ)',
-      'Corporate Income Tax (Form 1702-RT/EX)',
-      'Annual Registration Fee (Form 0605)'
+      'Corporate Income Tax (Form 1702-RT/EX)'
     ] as string[],
     activeEngagementsCount: 2,
-    managerInCharge: 'Michael Catorce',
+    managerInCharge: '',
     healthStatus: 'Good' as 'Good' | 'At Risk' | 'Needs Documents',
     contactPerson: '',
     contactEmail: '',
@@ -133,7 +133,19 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
+    setDuplicateTinError('');
     if (!newClient.name || !newClient.tin) return;
+
+    // Normalize away formatting differences (spaces, dashes) before
+    // comparing, since "123-456-789-000" and "123456789000" refer to the
+    // same taxpayer -- a naive exact-string check would miss that and let
+    // the same client get added twice under slightly different formatting.
+    const normalizedNewTin = newClient.tin.replace(/[^0-9]/g, '');
+    const duplicate = clients.find(c => c.tin.replace(/[^0-9]/g, '') === normalizedNewTin && normalizedNewTin.length > 0);
+    if (duplicate) {
+      setDuplicateTinError(`A client with this TIN already exists: "${duplicate.name}". Check the directory before adding a duplicate record.`);
+      return;
+    }
 
     onAddClient(newClient);
     setShowAddModal(false);
@@ -149,11 +161,10 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
         'VAT (Form 2550Q)',
         'Compensation Withholding (Form 1601-C)',
         'Expanded Withholding (Form 0619-E / 1601-EQ)',
-        'Corporate Income Tax (Form 1702-RT/EX)',
-        'Annual Registration Fee (Form 0605)'
+        'Corporate Income Tax (Form 1702-RT/EX)'
       ],
       activeEngagementsCount: 2,
-      managerInCharge: 'Michael Catorce',
+      managerInCharge: '',
       healthStatus: 'Good',
       contactPerson: '',
       contactEmail: '',
@@ -493,17 +504,23 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-base">Add New Client Corporate Profile</h3>
+                  <h3 className="font-extrabold text-slate-900 text-base">Add New Client Profile</h3>
                   <p className="text-xs text-slate-500">Configure BIR tax filing obligations, RDO info, and CPA assignment</p>
                 </div>
               </div>
               <button 
-                onClick={() => setShowAddModal(false)} 
+                onClick={() => { setShowAddModal(false); setDuplicateTinError(''); }} 
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
+
+            {duplicateTinError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold shrink-0">
+                {duplicateTinError}
+              </div>
+            )}
 
             <form onSubmit={handleCreateClient} className="space-y-5 text-xs overflow-y-auto pr-1 flex-1">
               
@@ -545,7 +562,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                       type="text"
                       placeholder="000-000-000-000"
                       value={newClient.tin}
-                      onChange={(e) => setNewClient({ ...newClient, tin: e.target.value })}
+                      onChange={(e) => { setNewClient({ ...newClient, tin: e.target.value }); setDuplicateTinError(''); }}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-mono font-bold"
                       required
                     />
