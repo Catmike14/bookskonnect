@@ -191,6 +191,22 @@ export async function ensureTablesExist() {
       updated_at TEXT NOT NULL
     );
   `;
+  // Defensive column-level migrations for tasks, same reasoning as the
+  // users/tax_deadlines migrations above: CREATE TABLE IF NOT EXISTS only
+  // helps on a fresh install. Any database whose tasks table predates one
+  // of these columns (e.g. attachments_json, added after the table
+  // already existed in some deployments) would otherwise 42703 ("column
+  // does not exist") on every single read or write to this table -- which
+  // is a total outage for the whole feed, not a minor gap.
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TEXT;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS flagged BOOLEAN DEFAULT FALSE NOT NULL;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS flag_reason TEXT;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS flag_date TEXT;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_json JSONB;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS comments_json JSONB DEFAULT '[]'::jsonb NOT NULL;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reactions_json JSONB DEFAULT '{}'::jsonb NOT NULL;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS audit_log_json JSONB DEFAULT '[]'::jsonb NOT NULL;`;
+  await sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS attachments_json JSONB DEFAULT '[]'::jsonb;`;
   await sql`
     CREATE TABLE IF NOT EXISTS tax_deadlines (
       id SERIAL PRIMARY KEY,

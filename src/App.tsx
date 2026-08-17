@@ -555,9 +555,19 @@ export default function App() {
   };
 
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => {
+    // Temporary client-side id for the optimistic UI update / React key
+    // only. Date.now() is milliseconds-since-epoch (~1.78 trillion in
+    // 2026) -- far larger than a standard Postgres `serial`/`integer`
+    // column's ~2.1 billion max, so it can NEVER be sent to the server as
+    // a real id (every query filtering on it would fail with "value out
+    // of range for type integer"). The small random offset just reduces
+    // (doesn't need to eliminate) same-millisecond collisions when
+    // several tasks are created in a tight loop, e.g. BIR calendar
+    // generation.
+    const tempId = Date.now() + Math.floor(Math.random() * 1000);
     const newTask: Task = {
       ...newTaskData,
-      id: Date.now(),
+      id: tempId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       comments: [],
@@ -572,8 +582,43 @@ export default function App() {
       ]
     };
 
-    setTasks([newTask, ...tasks]);
-    syncTaskApi(newTask);
+    setTasks(prev => [newTask, ...prev]);
+
+    // Deliberately omit `id` from the payload -- the temp id above must
+    // never reach the database. Without an id, the server always treats
+    // this as a fresh insert and Postgres's own auto-increment assigns a
+    // real, valid id, which we then swap into local state so every later
+    // update (status change, comment, flag) targets the correct row.
+    const { id: _tempId, ...payloadWithoutId } = newTask;
+    apiFetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadWithoutId)
+    }).then(async (res) => {
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.taskId != null && data.taskId !== tempId) {
+          setTasks(prev => prev.map(t => (t.id === tempId ? { ...t, id: data.taskId } : t)));
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setToasts(prev => [{
+          id: 'sync-fail-' + Date.now(),
+          title: '⚠️ Update Not Saved',
+          message: data.error || 'This task could not be saved to the server. Please refresh and try again.',
+          type: 'overdue',
+          autoDismissMs: 7000
+        }, ...prev]);
+      }
+    }).catch(() => {
+      setToasts(prev => [{
+        id: 'sync-fail-' + Date.now(),
+        title: '⚠️ Update Not Saved',
+        message: 'Network error -- this task could not be saved. Please check your connection and try again.',
+        type: 'overdue',
+        autoDismissMs: 7000
+      }, ...prev]);
+    });
   };
 
   const handleUpdateStatus = (taskId: number, newStatus: TaskStatus) => {
@@ -672,16 +717,46 @@ export default function App() {
   };
 
   const handleAddClient = (newClientData: Omit<Client, 'id'>) => {
+    // Same class of bug as task creation: Date.now() is way too large for
+    // a standard Postgres serial/integer column, so it's a client-side-only
+    // temp id for the optimistic UI update -- never sent to the server.
+    const tempId = Date.now() + Math.floor(Math.random() * 1000);
     const newClient: Client = {
       ...newClientData,
-      id: Date.now()
+      id: tempId
     };
-    setClients([...clients, newClient]);
+    setClients(prev => [...prev, newClient]);
+
+    const { id: _tempId, ...payloadWithoutId } = newClient;
     apiFetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newClient)
-    }).catch(() => {});
+      body: JSON.stringify(payloadWithoutId)
+    }).then(async (res) => {
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.client?.id != null && data.client.id !== tempId) {
+          setClients(prev => prev.map(c => (c.id === tempId ? { ...c, id: data.client.id } : c)));
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setToasts(prev => [{
+          id: 'sync-fail-' + Date.now(),
+          title: '⚠️ Client Not Saved',
+          message: data.error || 'This client could not be saved to the server. Please refresh and try again.',
+          type: 'overdue',
+          autoDismissMs: 7000
+        }, ...prev]);
+      }
+    }).catch(() => {
+      setToasts(prev => [{
+        id: 'sync-fail-' + Date.now(),
+        title: '⚠️ Client Not Saved',
+        message: 'Network error -- this client could not be saved. Please check your connection and try again.',
+        type: 'overdue',
+        autoDismissMs: 7000
+      }, ...prev]);
+    });
   };
 
   const handleUpdateClientNotes = (clientId: number, newNotes: string, newHealth?: Client['healthStatus'], fullClientData?: Partial<Client>) => {
