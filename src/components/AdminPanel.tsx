@@ -162,13 +162,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setAdminCategories(updated);
     localStorage.setItem('bk_task_categories', JSON.stringify(updated));
     setNewCategoryInput('');
-    setCategoryMsg(`Task type "${name}" added successfully.`);
-    setTimeout(() => setCategoryMsg(''), 3000);
     apiFetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
-    }).catch(() => {});
+    }).then(async (res) => {
+      if (res.ok) {
+        setCategoryMsg(`Task type "${name}" added successfully.`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setCategoryMsg(`Error: ${data.error || 'Could not save this task type to the server.'}`);
+        // Roll the optimistic local addition back since it never actually
+        // persisted -- leaving it would make the category look real
+        // (selectable everywhere) when the server has no record of it.
+        setAdminCategories(prev => prev.filter(c => c !== name));
+        localStorage.setItem('bk_task_categories', JSON.stringify(adminCategories.filter(c => c !== name)));
+      }
+      setTimeout(() => setCategoryMsg(''), 4000);
+    }).catch(() => {
+      setCategoryMsg('Error: Network error -- could not save this task type to the server.');
+      setAdminCategories(prev => prev.filter(c => c !== name));
+      setTimeout(() => setCategoryMsg(''), 4000);
+    });
   };
 
   const handleDeleteCategoryAdmin = (nameToDelete: string) => {
@@ -177,7 +192,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     localStorage.setItem('bk_task_categories', JSON.stringify(updated));
     apiFetch(`/api/categories/${encodeURIComponent(nameToDelete)}`, {
       method: 'DELETE'
-    }).catch(() => {});
+    }).then(async (res) => {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setCategoryMsg(`Error: ${data.error || 'Could not delete this task type on the server. It may reappear after a refresh.'}`);
+        setTimeout(() => setCategoryMsg(''), 5000);
+      }
+    }).catch(() => {
+      setCategoryMsg('Error: Network error -- this task type could not be deleted on the server.');
+      setTimeout(() => setCategoryMsg(''), 5000);
+    });
   };
 
   const handleSaveMasterKey = async (overrideLocked?: boolean) => {

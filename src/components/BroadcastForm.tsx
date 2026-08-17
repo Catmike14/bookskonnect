@@ -56,6 +56,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   const [category, setCategory] = useState<string>('VAT 2550Q');
   const [isAddingCustomCategory, setIsAddingCustomCategory] = useState(false);
   const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [customCategoryError, setCustomCategoryError] = useState('');
 
   useEffect(() => {
     apiFetch('/api/categories')
@@ -72,6 +73,7 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   const handleSaveNewCustomCategory = () => {
     if (!customCategoryInput.trim()) return;
     const newCat = customCategoryInput.trim();
+    setCustomCategoryError('');
     if (!categories.includes(newCat)) {
       const updated = [...categories, newCat];
       setCategories(updated);
@@ -80,7 +82,16 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCat })
-      }).catch(() => {});
+      }).then(async (res) => {
+        if (!res.ok) {
+          // Non-critical: this task can still be posted with the typed
+          // category name, it just won't be saved as a reusable option
+          // for future tasks -- so we warn rather than block or revert.
+          setCustomCategoryError('Saved for this task, but could not be added to the shared category list. Ask an admin to re-add it if needed.');
+        }
+      }).catch(() => {
+        setCustomCategoryError('Saved for this task, but could not be added to the shared category list (network error).');
+      });
     }
     setCategory(newCat);
     setCustomCategoryInput('');
@@ -389,6 +400,11 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
                 ))}
                 <option value="CREATE_NEW_CUSTOM_TYPE">+ Add Custom Task Type...</option>
               </select>
+            )}
+            {customCategoryError && (
+              <p className="mt-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                {customCategoryError}
+              </p>
             )}
           </div>
 

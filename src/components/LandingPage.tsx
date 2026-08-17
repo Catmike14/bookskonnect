@@ -183,7 +183,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@yourfirm.com"
+                      placeholder="juan.delacruz@gmail.com"
                       className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
                     />
                   </div>
@@ -236,7 +236,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       type="text"
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
-                      placeholder="e.g. Alex Morgan"
+                      placeholder="e.g. Maria Santos"
                       className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
                     />
                   </div>
@@ -252,7 +252,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       type="email"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="alex.morgan@yourfirm.com"
+                      placeholder="maria.santos@gmail.com"
                       className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
                     />
                   </div>

@@ -241,7 +241,11 @@ export default function App() {
 
   const handleDeleteTask = (taskId: number) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
-    apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' }).catch(() => {});
+    syncMutation(
+      `/api/tasks/${taskId}`,
+      { method: 'DELETE' },
+      'This task could not be deleted on the server. It may reappear after a refresh.'
+    );
   };
 
   // Tax Deadline (Compliance Calendar) handlers
@@ -253,24 +257,32 @@ export default function App() {
         body: JSON.stringify(deadline)
       });
       const data = await res.json().catch(() => ({}));
-      if (data.success && data.deadline) {
+      if (res.ok && data.success && data.deadline) {
         setDeadlines(prev => [...prev, data.deadline]);
+      } else {
+        notifySyncFailure(data.error || 'This deadline could not be saved to the server. Please refresh and try again.');
       }
-    } catch (e) {}
+    } catch (e) {
+      notifySyncFailure('Network error -- this deadline could not be saved. Please check your connection and try again.');
+    }
   };
 
   const handleUpdateDeadline = async (id: number, fields: Partial<TaxDeadline>) => {
     setDeadlines(prev => prev.map(d => (d.id === id ? { ...d, ...fields } : d)));
-    apiFetch(`/api/deadlines/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fields)
-    }).catch(() => {});
+    syncMutation(
+      `/api/deadlines/${id}`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) },
+      'This deadline update could not be saved to the server. Please refresh and try again.'
+    );
   };
 
   const handleDeleteDeadline = async (id: number) => {
     setDeadlines(prev => prev.filter(d => d.id !== id));
-    apiFetch(`/api/deadlines/${id}`, { method: 'DELETE' }).catch(() => {});
+    syncMutation(
+      `/api/deadlines/${id}`,
+      { method: 'DELETE' },
+      'This deadline could not be deleted on the server. It may reappear after a refresh.'
+    );
   };
 
   // Auto-generates upcoming compliance deadlines (and the matching actionable
@@ -520,38 +532,44 @@ export default function App() {
 
   // Handlers
   // NOTE: fetch() does not reject on HTTP error statuses (403, 500, etc.) --
-  // only on genuine network failure. A bare .catch(() => {}) here would
-  // silently swallow those the same way it swallows network errors, so a
-  // rejected update (session expired, CSRF mismatch, approval revoked
-  // mid-session) would leave the optimistic UI change looking successful
-  // while nothing was actually saved server-side. Checking response.ok and
-  // surfacing a toast either way closes that gap.
-  const syncTaskApi = async (task: Task) => {
+  // only on genuine network failure. A bare .catch(() => {}) would silently
+  // swallow those the same way it swallows network errors, so a rejected
+  // update (session expired, CSRF mismatch, approval revoked mid-session)
+  // would leave an optimistic UI change looking successful while nothing
+  // was actually saved server-side. Every mutation below routes through
+  // this helper specifically so that gap can't quietly reopen in just one
+  // of them -- checks response.ok and surfaces a toast either way.
+  const notifySyncFailure = (fallbackMessage: string) => {
+    setToasts(prev => [{
+      id: 'sync-fail-' + Date.now(),
+      title: '⚠️ Change Not Saved',
+      message: fallbackMessage,
+      type: 'overdue',
+      autoDismissMs: 7000
+    }, ...prev]);
+  };
+
+  /** Fire-and-forget mutation with proper failure surfacing. Use for calls
+   * where the caller has already applied an optimistic local update and
+   * just needs the server write to happen in the background. */
+  const syncMutation = async (url: string, options: RequestInit, fallbackMessage: string) => {
     try {
-      const res = await apiFetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(task)
-      });
+      const res = await apiFetch(url, options);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setToasts(prev => [{
-          id: 'sync-fail-' + Date.now(),
-          title: '⚠️ Update Not Saved',
-          message: data.error || 'This change could not be saved to the server. Please refresh and try again.',
-          type: 'overdue',
-          autoDismissMs: 7000
-        }, ...prev]);
+        notifySyncFailure(data.error || fallbackMessage);
       }
     } catch (err) {
-      setToasts(prev => [{
-        id: 'sync-fail-' + Date.now(),
-        title: '⚠️ Update Not Saved',
-        message: 'Network error -- this change could not be saved. Please check your connection and try again.',
-        type: 'overdue',
-        autoDismissMs: 7000
-      }, ...prev]);
+      notifySyncFailure(`Network error -- ${fallbackMessage.charAt(0).toLowerCase()}${fallbackMessage.slice(1)}`);
     }
+  };
+
+  const syncTaskApi = (task: Task) => {
+    syncMutation(
+      '/api/tasks',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) },
+      'This change could not be saved to the server. Please refresh and try again.'
+    );
   };
 
   const handleAddTask = (newTaskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'auditLog' | 'reactions' | 'comments'>) => {
@@ -602,22 +620,10 @@ export default function App() {
         }
       } else {
         const data = await res.json().catch(() => ({}));
-        setToasts(prev => [{
-          id: 'sync-fail-' + Date.now(),
-          title: '⚠️ Update Not Saved',
-          message: data.error || 'This task could not be saved to the server. Please refresh and try again.',
-          type: 'overdue',
-          autoDismissMs: 7000
-        }, ...prev]);
+        notifySyncFailure(data.error || 'This task could not be saved to the server. Please refresh and try again.');
       }
     }).catch(() => {
-      setToasts(prev => [{
-        id: 'sync-fail-' + Date.now(),
-        title: '⚠️ Update Not Saved',
-        message: 'Network error -- this task could not be saved. Please check your connection and try again.',
-        type: 'overdue',
-        autoDismissMs: 7000
-      }, ...prev]);
+      notifySyncFailure('Network error -- this task could not be saved. Please check your connection and try again.');
     });
   };
 
@@ -740,22 +746,10 @@ export default function App() {
         }
       } else {
         const data = await res.json().catch(() => ({}));
-        setToasts(prev => [{
-          id: 'sync-fail-' + Date.now(),
-          title: '⚠️ Client Not Saved',
-          message: data.error || 'This client could not be saved to the server. Please refresh and try again.',
-          type: 'overdue',
-          autoDismissMs: 7000
-        }, ...prev]);
+        notifySyncFailure(data.error || 'This client could not be saved to the server. Please refresh and try again.');
       }
     }).catch(() => {
-      setToasts(prev => [{
-        id: 'sync-fail-' + Date.now(),
-        title: '⚠️ Client Not Saved',
-        message: 'Network error -- this client could not be saved. Please check your connection and try again.',
-        type: 'overdue',
-        autoDismissMs: 7000
-      }, ...prev]);
+      notifySyncFailure('Network error -- this client could not be saved. Please check your connection and try again.');
     });
   };
 
@@ -771,16 +765,20 @@ export default function App() {
       }
       return c;
     }));
-    apiFetch(`/api/clients/${clientId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: newNotes, healthStatus: newHealth, ...(fullClientData || {}) })
-    }).catch(() => {});
+    syncMutation(
+      `/api/clients/${clientId}`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: newNotes, healthStatus: newHealth, ...(fullClientData || {}) }) },
+      'This client update could not be saved to the server. Please refresh and try again.'
+    );
   };
 
   const handleDeleteClient = (clientId: number) => {
     setClients(prev => prev.filter(c => c.id !== clientId));
-    apiFetch(`/api/clients/${clientId}`, { method: 'DELETE' }).catch(() => {});
+    syncMutation(
+      `/api/clients/${clientId}`,
+      { method: 'DELETE' },
+      'This client could not be deleted on the server. It may reappear after a refresh.'
+    );
   };
 
 
