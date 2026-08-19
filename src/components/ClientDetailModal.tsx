@@ -125,6 +125,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   const [isDraftingEmail, setIsDraftingEmail] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState('');
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copyEmailError, setCopyEmailError] = useState(false);
 
   // Filter tasks for this client
   const clientTasks = tasks.filter(t => t.clientName.toLowerCase() === client.name.toLowerCase());
@@ -193,10 +194,20 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
     }
   };
 
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText(generatedEmail);
-    setCopiedEmail(true);
-    setTimeout(() => setCopiedEmail(false), 2000);
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedEmail);
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+    } catch (err) {
+      // Same reasoning as the AI Assistant modal's copy handler: clipboard
+      // access can fail (permissions, insecure context), and writeText()
+      // returns a rejectable promise specifically so that's detectable --
+      // previously this wasn't awaited, so "Copied!" would show even when
+      // nothing was actually copied.
+      setCopyEmailError(true);
+      setTimeout(() => setCopyEmailError(false), 2500);
+    }
   };
 
   const getHealthBadge = (status: Client['healthStatus']) => {
@@ -821,6 +832,11 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                         <>
                           <Check className="w-3.5 h-3.5" />
                           <span>Copied!</span>
+                        </>
+                      ) : copyEmailError ? (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy failed</span>
                         </>
                       ) : (
                         <>

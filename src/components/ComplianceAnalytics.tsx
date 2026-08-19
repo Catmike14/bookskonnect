@@ -1,6 +1,7 @@
 import React from 'react';
 import { Task, Client } from '../types';
 import { exportTasksToCsv, exportClientsToCsv, downloadCsv } from '../utils/exportUtils';
+import { computeTeamPerformance, formatCategoryChartLabel } from '../utils/teamPerformance';
 import { 
   BarChart, 
   Bar, 
@@ -76,74 +77,17 @@ export const ComplianceAnalytics: React.FC<ComplianceAnalyticsProps> = ({ tasks,
   }, {} as Record<string, number>);
 
   const barData = Object.keys(categoryCounts).map(cat => ({
-    category: cat.replace('Tax', '').trim(),
+    category: formatCategoryChartLabel(cat),
     count: categoryCounts[cat]
   }));
 
-  // Calculate Average Time to Completion per team member from audit logs
-  const teamPerformanceMap: Record<string, {
-    name: string;
-    role: string;
-    avatar: string;
-    completedCount: number;
-    totalAssigned: number;
-    totalHours: number;
-  }> = {};
-
-  tasks.forEach(task => {
-    const member = task.assignee || task.creator;
-    if (!member) return;
-    const name = member.name;
-
-    if (!teamPerformanceMap[name]) {
-      teamPerformanceMap[name] = {
-        name,
-        role: member.role || 'Team Member',
-        avatar: member.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        completedCount: 0,
-        totalAssigned: 0,
-        totalHours: 0
-      };
-    }
-
-    teamPerformanceMap[name].totalAssigned += 1;
-
-    if (task.status === 'DONE') {
-      teamPerformanceMap[name].completedCount += 1;
-
-      // Calculate time difference between start and completion
-      const doneLog = task.auditLog?.find(a => 
-        a.action.toLowerCase().includes('done') || 
-        a.action.toLowerCase().includes('completed') ||
-        a.action.toLowerCase().includes('marked as done')
-      );
-      const startLog = task.auditLog?.[0];
-
-      const startTime = startLog ? new Date(startLog.timestamp).getTime() : new Date(task.createdAt).getTime();
-      const endTime = doneLog ? new Date(doneLog.timestamp).getTime() : new Date(task.updatedAt).getTime();
-
-      const diffHours = Math.max(0.5, (endTime - startTime) / (1000 * 3600));
-      teamPerformanceMap[name].totalHours += diffHours;
-    }
-  });
-
-  const teamPerformanceData = Object.values(teamPerformanceMap).map(member => {
-    const avgHours = member.completedCount > 0 ? (member.totalHours / member.completedCount) : 0;
-    let formattedTime = 'No filings closed yet';
-    if (member.completedCount > 0) {
-      if (avgHours < 24) {
-        formattedTime = `${avgHours.toFixed(1)} hrs avg`;
-      } else {
-        formattedTime = `${(avgHours / 24).toFixed(1)} days avg (${avgHours.toFixed(0)} hrs)`;
-      }
-    }
-
-    return {
-      ...member,
-      avgHours: Number(avgHours.toFixed(1)),
-      formattedTime,
-    };
-  });
+  // Average Time to Completion per team member, derived from audit logs.
+  // See src/utils/teamPerformance.ts for the calculation itself -- kept as
+  // a pure, independently-tested function rather than inline here, since
+  // this exact logic has already hidden a couple of real bugs (a
+  // first-vs-most-recent "done" log match, a label-formatting artifact)
+  // that were easy to miss reading it embedded in JSX.
+  const teamPerformanceData = computeTeamPerformance(tasks);
 
   return (
     <div className="space-y-6">

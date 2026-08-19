@@ -327,7 +327,8 @@ export const FeedCard: React.FC<FeedCardProps> = ({
 
             <button
               onClick={handleRequestAiRoadblockStrategy}
-              className="bg-white hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+              disabled={aiStrategyLoading}
+              className="bg-white hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed text-red-700 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
               <span>AI Resolver Strategy</span>

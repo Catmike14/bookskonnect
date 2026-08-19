@@ -27,12 +27,14 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSendQuery = async (customPrompt?: string, actionType?: string) => {
     const queryToUse = customPrompt || prompt;
     if (!queryToUse && actionType !== 'feed_summary') return;
+    if (loading) return; // a request is already in flight -- see the disabled buttons below for the primary guard
 
     setLoading(true);
     setResponse(null);
@@ -44,7 +46,14 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
         body: JSON.stringify({
           action: actionType || 'general',
           prompt: queryToUse,
-          context: { tasks }
+          // Only feed_summary actually reads context.tasks server-side (see
+          // server.ts) -- every other action type ignores it entirely, so
+          // sending the full task list (potentially hundreds of tasks with
+          // full audit logs and comments) on a simple typed question or
+          // tax checklist request was pure wasted payload. For a firm with
+          // enough task history this could even trip the server's request
+          // body size limit on a query that has nothing to do with tasks.
+          context: actionType === 'feed_summary' ? { tasks } : {}
         })
       });
 
@@ -61,11 +70,20 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
     }
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!response) return;
-    navigator.clipboard.writeText(response);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(response);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Clipboard access can fail (permissions denied, insecure context,
+      // etc.) -- writeText() returns a rejectable promise specifically so
+      // this can be detected. Previously this wasn't awaited at all, so
+      // the UI would show "Copied!" even when nothing was actually copied.
+      setCopyError(true);
+      setTimeout(() => setCopyError(false), 2500);
+    }
   };
 
   const quickPrompts = [
@@ -111,11 +129,12 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
           {quickPrompts.map((p, idx) => (
             <button
               key={idx}
+              disabled={loading}
               onClick={() => {
                 setPrompt(p.text);
                 handleSendQuery(p.text, p.action);
               }}
-              className="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 flex items-center gap-1.5"
+              className="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-300 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               <span>{p.label}</span>
@@ -142,7 +161,7 @@ export const AICpaAssistantModal: React.FC<AICpaAssistantModalProps> = ({
                   className="text-slate-400 hover:text-white flex items-center gap-1 text-[11px] bg-slate-700/80 px-2.5 py-1 rounded-lg transition cursor-pointer"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                  <span>{copyError ? 'Copy failed' : copied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
 
