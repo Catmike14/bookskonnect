@@ -51,8 +51,18 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Performance & Security: Restrict JSON payload size
-app.use(express.json({ limit: "500kb" }));
+// Performance & Security: Restrict JSON payload size. Raised from the
+// original 500kb specifically to accommodate task attachments, which are
+// embedded as base64 data URLs directly in the request body (there's no
+// separate file-storage backend to upload to instead -- see
+// BroadcastForm.tsx). Base64 inflates a file's raw size by roughly a
+// third, and the client enforces a 10MB raw combined-attachment cap per
+// post, so this needs comfortable headroom above ~13.3MB plus the rest of
+// the task fields. Every route that accepts a body this large already
+// requires an authenticated, approved account (requireApproved/
+// requireAdmin), which bounds who can send an oversized payload at all;
+// the general rate limiter further bounds how often they can repeat it.
+app.use(express.json({ limit: "16mb" }));
 app.use(cookieParser());
 
 // Rate Limiter Store (In-Memory for performance)

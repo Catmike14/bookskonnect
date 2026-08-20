@@ -111,17 +111,52 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   const [isFlagged, setIsFlagged] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [attachments, setAttachments] = useState<{ name: string; url: string; size: string }[]>([]);
+  const [attachmentError, setAttachmentError] = useState('');
+
+  // Attachments are embedded as base64 data URLs directly inside the task's
+  // JSON payload (there's no separate file-storage backend to upload to) --
+  // base64 inflates a file's size by roughly a third, and everything else
+  // in the post (title, description, etc.) adds a little more on top. This
+  // cap is set with headroom under the server's JSON body size limit (see
+  // server.ts) so a rejection here is a clear, specific message instead of
+  // the request silently failing at submit time with no indication of why.
+  const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB raw per file
+  const MAX_TOTAL_ATTACHMENTS_BYTES = 10 * 1024 * 1024; // 10MB raw combined
 
   const [isDraftingAi, setIsDraftingAi] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   const finalClientName = clientName === 'OTHER' ? customClient : clientName;
 
+  const [attachmentBytesUsed, setAttachmentBytesUsed] = useState(0);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    const fileList = Array.from(e.target.files);
+    const fileList: File[] = Array.from(e.target.files);
+    setAttachmentError('');
 
-    fileList.forEach((file: File) => {
+    let runningTotal = attachmentBytesUsed;
+    const accepted: File[] = [];
+    const rejectedNames: string[] = [];
+
+    for (const file of fileList) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        rejectedNames.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB -- over the 4 MB per-file limit)`);
+        continue;
+      }
+      if (runningTotal + file.size > MAX_TOTAL_ATTACHMENTS_BYTES) {
+        rejectedNames.push(`${file.name} (would exceed the 10 MB combined attachment limit for this post)`);
+        continue;
+      }
+      runningTotal += file.size;
+      accepted.push(file);
+    }
+
+    if (rejectedNames.length > 0) {
+      setAttachmentError(`Not attached -- ${rejectedNames.join('; ')}. Try a smaller file or fewer attachments.`);
+    }
+
+    accepted.forEach((file: File) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const dataUrl = (event.target?.result as string) || '#';
@@ -133,6 +168,10 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
             size: (file.size / 1024).toFixed(1) + ' KB'
           }
         ]);
+        setAttachmentBytesUsed(prev => prev + file.size);
+      };
+      reader.onerror = () => {
+        setAttachmentError(prev => prev ? `${prev} ${file.name} could not be read.` : `${file.name} could not be read.`);
       };
       reader.readAsDataURL(file);
     });
@@ -140,7 +179,16 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
   };
 
   const handleRemoveAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachments(prev => {
+      const removed = prev[index];
+      if (removed) {
+        const rawBytes = parseFloat(removed.size) * 1024;
+        if (!Number.isNaN(rawBytes)) {
+          setAttachmentBytesUsed(b => Math.max(0, b - rawBytes));
+        }
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -513,6 +561,12 @@ export const BroadcastForm: React.FC<BroadcastFormProps> = ({ currentUser, allUs
               />
             </label>
           </div>
+
+          {attachmentError && (
+            <p className="mb-1.5 text-[10px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+              {attachmentError}
+            </p>
+          )}
 
           {/* Attached Files List */}
           {attachments.length > 0 && (
